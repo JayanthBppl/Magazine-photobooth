@@ -5,7 +5,7 @@ const multer = require("multer");
 const mongoose = require("mongoose");
 const nodemailer = require("nodemailer");
 const path = require("path");
-const { v2: cloudinary } = require("cloudinary");
+const cloudinary = require("cloudinary").v2;
 const QRCode = require("qrcode");
 const axios = require("axios");
 const FormData = require("form-data");
@@ -211,7 +211,7 @@ app.post("/compose-final", async (req, res) => {
 
     console.log(`🧩 Composing final image using layout: ${layoutId}`);
 
-    // Read assets
+    // Load layout and layer images
     const [layoutBuffer, layerBuffer] = await Promise.all([
       fs.promises.readFile(layoutPath),
       fs.promises.readFile(layerPath),
@@ -223,12 +223,12 @@ app.post("/compose-final", async (req, res) => {
       "base64"
     );
 
-    // Layout metadata
+    // Get layout metadata
     const layoutMeta = await sharp(layoutBuffer).metadata();
     const layoutWidth = Math.round(layoutMeta.width);
     const layoutHeight = Math.round(layoutMeta.height);
 
-    // Resize user image to fill 90% of layout height
+    // Resize user image to fill 90% of layout height (maintain aspect)
     const targetUserHeight = Math.round(layoutHeight * 0.9);
     const resizedUserBuffer = await sharp(userBuffer)
       .resize({
@@ -245,19 +245,16 @@ app.post("/compose-final", async (req, res) => {
     const left = Math.floor((layoutWidth - userMeta.width) / 2);
     const top = Math.max(layoutHeight - userMeta.height, 0);
 
-    // Composite (Layout + User + Overlay Layer)
+    // 🧠 Composite: layout + user + overlay layer
     const composedImage = await sharp(layoutBuffer)
       .composite([
         { input: resizedUserBuffer, left, top },
         { input: layerBuffer, blend: "over" },
       ])
-      .jpeg({
-        quality: 100,
-        chromaSubsampling: "4:4:4",
-      })
+      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    // Save locally
+    // Save locally (for Render file system)
     const timestamp = Date.now();
     const outputFilename = `final_${layoutId}_${timestamp}.jpg`;
     const outputPath = path.join(outputDir, outputFilename);
@@ -265,34 +262,40 @@ app.post("/compose-final", async (req, res) => {
 
     console.log(`✅ Saved locally: ${outputFilename}`);
 
-    // 🧠 Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.v2.uploader.upload_stream(
-        {
-          folder: "photo-booth-finals",
-          public_id: `final_${layoutId}_${timestamp}`,
-          resource_type: "image",
-          overwrite: true,
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      ).end(composedImage);
-    });
+    // ☁️ Upload to Cloudinary
+    let uploadResult = null;
+    try {
+      uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "photo-booth-finals",
+            public_id: `final_${layoutId}_${timestamp}`,
+            resource_type: "image",
+            overwrite: true,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(composedImage);
+      });
 
-    console.log(`☁️ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+      console.log(`☁️ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+    } catch (cloudErr) {
+      console.warn("⚠️ Cloudinary upload failed:", cloudErr.message);
+    }
 
+    // Encode for immediate frontend preview
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
 
     res.json({
       success: true,
-      message: "Image composed and uploaded successfully",
-      finalImageData: finalBase64, // for immediate frontend display
-      localPath: outputPath,       // saved on Render
-      cloudinaryUrl: uploadResult.secure_url, // permanent link
+      message: "Image composed successfully",
+      finalImageData: finalBase64,
+      localPath: outputPath,
+      cloudinaryUrl: uploadResult?.secure_url || null,
     });
-
   } catch (err) {
     console.error("❌ Compose error:", err);
     res.status(500).json({
@@ -301,6 +304,7 @@ app.post("/compose-final", async (req, res) => {
     });
   }
 });
+
 
 
 
