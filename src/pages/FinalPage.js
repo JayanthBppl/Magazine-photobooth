@@ -10,7 +10,8 @@ function FinalPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const BASE_URL = "http://localhost:5000";
+  // const BASE_URL = "http://localhost:5000";
+  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
 
   // 🧠 Compose automatically when the page loads
   useEffect(() => {

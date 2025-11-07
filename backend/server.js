@@ -22,7 +22,7 @@ const app = express();
 // ----------------- Middleware ----------------- //
 app.use(
   cors({
-    origin: ["https://map-art-photobooth.netlify.app","http://localhost:3000"],
+    origin: ["https://magazine-photobooth.netlify.app","http://localhost:3000"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })

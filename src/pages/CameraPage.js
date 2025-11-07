@@ -16,7 +16,8 @@ const CameraPage = () => {
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  const BASE_URL = "http://localhost:5000";
+  // const BASE_URL = "http://localhost:5000";
+  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
   /** 🎥 Initialize Camera **/
