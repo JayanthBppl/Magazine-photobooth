@@ -1,0 +1,22 @@
+.custom-btn {
+  border: none;
+  border-radius: 25px;
+  padding: 5px 15px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.custom-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.retake-btn {
+  background-color: #c05614; /* pink-red */
+}
+
+.next-btn {
+  background-color: #2fa761; /* green */
+}
