@@ -217,7 +217,7 @@ app.post("/compose-final", async (req, res) => {
       fs.promises.readFile(layerPath),
     ]);
 
-    // Decode user image
+    // Decode user image (base64)
     const userBuffer = Buffer.from(
       userImage.replace(/^data:image\/\w+;base64,/, ""),
       "base64"
@@ -228,33 +228,27 @@ app.post("/compose-final", async (req, res) => {
     const layoutWidth = Math.round(layoutMeta.width);
     const layoutHeight = Math.round(layoutMeta.height);
 
-    // Resize user image to fill 90% of layout height (maintain aspect)
-    const targetUserHeight = Math.round(layoutHeight * 0.9);
+    // 🧠 NEW: Resize user image to MATCH full layout width, not height
     const resizedUserBuffer = await sharp(userBuffer)
       .resize({
-        height: targetUserHeight,
-        fit: "contain",
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        width: layoutWidth,
+        height: layoutHeight,
+        fit: "cover", // Ensures the full frame is covered (like CSS object-fit: cover)
+        position: "centre",
       })
       .png()
       .toBuffer();
 
-    const userMeta = await sharp(resizedUserBuffer).metadata();
-
-    // Center horizontally, align bottom vertically
-    const left = Math.floor((layoutWidth - userMeta.width) / 2);
-    const top = Math.max(layoutHeight - userMeta.height, 0);
-
-    // 🧠 Composite: layout + user + overlay layer
+    // 🧠 Composite: user fills full frame + overlay layer + layout background
     const composedImage = await sharp(layoutBuffer)
       .composite([
-        { input: resizedUserBuffer, left, top },
+        { input: resizedUserBuffer, blend: "over" },
         { input: layerBuffer, blend: "over" },
       ])
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    // Save locally (for Render file system)
+    // Save locally
     const timestamp = Date.now();
     const outputFilename = `final_${layoutId}_${timestamp}.jpg`;
     const outputPath = path.join(outputDir, outputFilename);
@@ -304,6 +298,7 @@ app.post("/compose-final", async (req, res) => {
     });
   }
 });
+
 
 
 

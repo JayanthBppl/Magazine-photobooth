@@ -23,7 +23,7 @@ function UserAndLayoutPage() {
     { id: "layout3", src: "/layouts/layout3.jpg" },
   ];
 
-  const BASE_URL = "http://localhost:5000"|| "https://magazine-photobooth-backend.onrender.com";
+  const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
 
   const handleChange = (e) => {
     const { name, value } = e.target;

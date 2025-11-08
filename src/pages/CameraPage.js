@@ -15,16 +15,38 @@ const CameraPage = () => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [devices, setDevices] = useState([]); // list of cameras
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null); // active camera
 
- const BASE_URL = "http://localhost:5000"|| "https://magazine-photobooth-backend.onrender.com";
+  // ⚙️ API base
+  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
-  /** 🎥 Initialize Camera **/
+  /** 🎥 Detect and load available cameras **/
+  useEffect(() => {
+    const loadCameras = async () => {
+      try {
+        const devicesList = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
+        setDevices(videoInputs);
+        if (videoInputs.length > 0) {
+          setSelectedDeviceId(videoInputs[0].deviceId); // default first camera
+        }
+      } catch (err) {
+        console.error("Camera detection error:", err);
+      }
+    };
+    loadCameras();
+  }, []);
+
+  /** 🎥 Start Camera Stream **/
   useEffect(() => {
     const startCamera = async () => {
+      if (!selectedDeviceId) return;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
+            deviceId: { exact: selectedDeviceId },
             facingMode: "user",
             width: { ideal: 720 },
             height: { ideal: 1280 },
@@ -43,12 +65,13 @@ const CameraPage = () => {
     };
 
     startCamera();
+
     return () => {
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
       }
     };
-  }, []);
+  }, [selectedDeviceId]);
 
   /** 📸 Capture & Remove Background **/
   const captureAndRemoveBG = async () => {
@@ -118,7 +141,7 @@ const CameraPage = () => {
   /** ⏱ Countdown **/
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
-    setCountdown(5);
+    setCountdown(3);
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -132,35 +155,50 @@ const CameraPage = () => {
     }, 1000);
   };
 
+  /** 🌐 Handle camera switch **/
+  const handleCameraChange = (e) => {
+    const newDeviceId = e.target.value;
+    setSelectedDeviceId(newDeviceId);
+  };
+
   return (
     <div className="camera-container">
       <div className="camera-center-box">
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
+        {/* 🎛 Camera Selector */}
+        {devices.length > 1 && (
+          <div className="camera-select-box">
+            <label htmlFor="cameraSelect" className="camera-select-label">
+              Choose Camera:
+            </label>
+            <select
+              id="cameraSelect"
+              value={selectedDeviceId || ""}
+              onChange={handleCameraChange}
+              className="camera-dropdown"
+            >
+              {devices.map((device, index) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `Camera ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* 📷 Camera Frame */}
         <div className="camera-frame">
-          {/* Camera Feed */}
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
             className="video-feed"
-            style={{
-              transform: "scaleX(-1)",
-            }}
+            style={{ transform: "scaleX(-1)" }}
           />
-
-          {/* Overlay */}
-          <img
-            src={layerSrc}
-            alt="Layout Overlay"
-            className="overlay-frame"
-          />
-
-          {/* Countdown */}
-          {countdown > 0 && (
-            <div className="countdown">{countdown}</div>
-          )}
+          <img src={layerSrc} alt="Layout Overlay" className="overlay-frame" />
+          {countdown > 0 && <div className="countdown">{countdown}</div>}
         </div>
 
         <canvas ref={canvasRef} style={{ display: "none" }} />
