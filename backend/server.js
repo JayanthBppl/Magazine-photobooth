@@ -199,27 +199,33 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
     ]);
 
-    // === Step 4: Resize bgRemoved proportionally & anchor toward bottom ===
+    // === Step 4: Resize user intelligently ===
+    // - Scale so person fills about 90% of layout height
+    // - Maintain proportions
+    const TARGET_HEIGHT = Math.round(LAYOUT_HEIGHT * 0.9);
+    const scaleFactor = TARGET_HEIGHT / bgMeta.height;
+    const TARGET_WIDTH = Math.round(bgMeta.width * scaleFactor);
+
     const resizedUserBuffer = await sharp(bgRemovedBuffer)
       .resize({
-        width: Math.round(LAYOUT_WIDTH * 3.0), // narrower (80% width)
-        height: Math.round(LAYOUT_HEIGHT * 0.9), // lower height scale
-        fit: "inside", // maintain aspect ratio
-        withoutEnlargement: true,
+        width: TARGET_WIDTH,
+        height: TARGET_HEIGHT,
+        fit: "inside",
       })
       .toBuffer();
 
     const resizedMeta = await sharp(resizedUserBuffer).metadata();
 
-    // Compute centered X and Y — anchor slightly toward bottom (center-ish)
+    // === Step 5: Position person ===
+    // Center horizontally, align slightly above bottom
     const left = Math.round((LAYOUT_WIDTH - resizedMeta.width) / 2);
-    const top = Math.round((LAYOUT_HEIGHT / 2) - resizedMeta.height / 2 + (LAYOUT_HEIGHT * 0.15)); // push down ~15%
+    const top = Math.round(LAYOUT_HEIGHT - resizedMeta.height - (LAYOUT_HEIGHT * 0.02)); // small bottom margin
 
     console.log(
-      `🧮 Positioning user image at left=${left}, top=${top}, size=${resizedMeta.width}x${resizedMeta.height}`
+      `🧮 Position user: left=${left}, top=${top}, size=${resizedMeta.width}x${resizedMeta.height}`
     );
 
-    // === Step 5: Compose final ===
+    // === Step 6: Compose final ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
         { input: resizedUserBuffer, left, top, blend: "over" },
@@ -228,7 +234,6 @@ app.post("/process-image", async (req, res) => {
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    // === Step 6: Save Output ===
     const outputFilename = `final_${layoutId}_${Date.now()}.jpg`;
     const outputPath = path.join(outputDir, outputFilename);
     await fs.promises.writeFile(outputPath, composedImage);
@@ -239,13 +244,12 @@ app.post("/process-image", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Final composed image generated successfully (bottom-centered)",
+      message: "Final composed image generated successfully (portrait-fit)",
       finalImage: finalBase64,
       info: {
         layout: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
         bgRemoved: { width: bgMeta.width, height: bgMeta.height },
         resized: { width: resizedMeta.width, height: resizedMeta.height, left, top },
-        outputPath,
       },
     });
   } catch (error) {
@@ -256,6 +260,7 @@ app.post("/process-image", async (req, res) => {
     });
   }
 });
+
 
 
 
