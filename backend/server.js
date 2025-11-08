@@ -202,8 +202,8 @@ app.post("/process-image", async (req, res) => {
     // === Step 4: Resize bgRemoved proportionally & anchor toward bottom ===
     const resizedUserBuffer = await sharp(bgRemovedBuffer)
       .resize({
-        width: Math.round(LAYOUT_WIDTH * 0.8), // narrower (80% width)
-        height: Math.round(LAYOUT_HEIGHT * 0.8), // lower height scale
+        width: Math.round(LAYOUT_WIDTH * 1.0), // narrower (80% width)
+        height: Math.round(LAYOUT_HEIGHT * 0.9), // lower height scale
         fit: "inside", // maintain aspect ratio
         withoutEnlargement: true,
       })
