@@ -7,8 +7,8 @@ const CameraPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { layoutId } = location.state || {};
-
   const { setProcessedImage, setLayout } = useContext(AppContext);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -16,8 +16,7 @@ const CameraPage = () => {
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  // const BASE_URL = "http://localhost:5000";
-  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+ const BASE_URL = "http://localhost:5000"|| "https://magazine-photobooth-backend.onrender.com";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
   /** 🎥 Initialize Camera **/
@@ -44,10 +43,9 @@ const CameraPage = () => {
     };
 
     startCamera();
-
     return () => {
       if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
       }
     };
   }, []);
@@ -64,8 +62,6 @@ const CameraPage = () => {
     }
 
     setProcessing(true);
-
-    // --- Canvas setup (portrait crop 9:16) ---
     const canvasWidth = 720;
     const canvasHeight = 1280;
     canvas.width = canvasWidth;
@@ -75,7 +71,6 @@ const CameraPage = () => {
     const canvasAspect = canvasWidth / canvasHeight;
 
     let sx, sy, sw, sh;
-
     if (videoAspect > canvasAspect) {
       sh = video.videoHeight;
       sw = sh * canvasAspect;
@@ -88,26 +83,14 @@ const CameraPage = () => {
       sy = (video.videoHeight - sh) / 2;
     }
 
-    // Draw mirrored video frame
     ctx.save();
     ctx.scale(-1, 1);
-    ctx.drawImage(
-      video,
-      sx,
-      sy,
-      sw,
-      sh,
-      -canvasWidth,
-      0,
-      canvasWidth,
-      canvasHeight
-    );
+    ctx.drawImage(video, sx, sy, sw, sh, -canvasWidth, 0, canvasWidth, canvasHeight);
     ctx.restore();
 
     const capturedData = canvas.toDataURL("image/png");
 
     try {
-      // 🧠 Step 1: Remove background
       const response = await fetch(`${BASE_URL}/remove-bg`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,12 +101,9 @@ const CameraPage = () => {
       if (!data.success) throw new Error("Background removal failed!");
 
       const bgRemovedImage = "data:image/png;base64," + data.data.result_b64;
-
-      // ✅ Step 2: Save in context
       setProcessedImage(bgRemovedImage);
       setLayout(layoutId);
 
-      // ✅ Step 3: Navigate to FinalPage
       navigate("/final", {
         state: { layoutId, processedImage: bgRemovedImage },
       });
@@ -135,7 +115,7 @@ const CameraPage = () => {
     }
   };
 
-  /** ⏱ Start 5-second countdown before capture **/
+  /** ⏱ Countdown **/
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
     setCountdown(5);
@@ -145,7 +125,7 @@ const CameraPage = () => {
         if (prev <= 1) {
           clearInterval(timer);
           setCountdown(0);
-          captureAndRemoveBG(); // auto-trigger capture after countdown
+          captureAndRemoveBG();
         }
         return prev - 1;
       });
@@ -153,81 +133,40 @@ const CameraPage = () => {
   };
 
   return (
-    <div className="container-fluid text-center bg-dark text-white py-5 vh-100">
-      <h3 className="mb-4">Align Yourself and Get Ready!</h3>
+    <div className="camera-container">
+      <div className="camera-center-box">
+        <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
-      <div
-        style={{
-          position: "relative",
-          width: "280px",
-          height: "480px",
-          margin: "0 auto",
-          borderRadius: "12px",
-          overflow: "hidden",
-          backgroundColor: "#000",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
-        }}
-      >
-        {/* Live Camera Feed */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%) scaleX(-1)",
-            width: "auto",
-            height: "100%",
-            objectFit: "cover",
-            zIndex: 1,
-          }}
-        />
-
-        {/* Layer Overlay */}
-        <img
-          src={layerSrc}
-          alt="Layer Overlay"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            zIndex: 2,
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Countdown Overlay */}
-        {countdown > 0 && (
-          <div
+        <div className="camera-frame">
+          {/* Camera Feed */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="video-feed"
             style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              fontSize: "5rem",
-              fontWeight: "bold",
-              color: "#fff",
-              textShadow: "0 0 15px rgba(0,0,0,0.7)",
-              zIndex: 5,
+              transform: "scaleX(-1)",
             }}
-          >
-            {countdown}
-          </div>
-        )}
-      </div>
+          />
 
-      <canvas ref={canvasRef} style={{ display: "none" }} />
+          {/* Overlay */}
+          <img
+            src={layerSrc}
+            alt="Layout Overlay"
+            className="overlay-frame"
+          />
 
-      {/* Buttons */}
-      <div className="mt-4">
+          {/* Countdown */}
+          {countdown > 0 && (
+            <div className="countdown">{countdown}</div>
+          )}
+        </div>
+
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
         <button
-          className="btn btn-primary px-4"
+          className="capture-btn"
           onClick={startCountdown}
           disabled={!isCameraReady || processing || countdown > 0}
         >

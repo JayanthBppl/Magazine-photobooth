@@ -1,0 +1,100 @@
+/* FinalPage.css - responsive final portrait styling */
+
+.final-page-root {
+  min-height: 100vh;
+  padding: 40px 20px;
+  background: #1f2628; /* dark neutral to match app */
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  box-sizing: border-box;
+  font-family: "AllerDisplay", "Poppins", sans-serif;
+}
+
+/* Title */
+.final-title {
+  font-size: 2.1rem;
+  margin: 0;
+  letter-spacing: 0.6px;
+  text-shadow: 0 4px 14px rgba(0,0,0,0.6);
+}
+
+/* Loading / error */
+.final-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.final-error {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+/* Card wrapper centers and ensures card size adapts */
+.final-card-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* The visual frame for the portrait */
+.final-card {
+  /* use min/max so layout doesn't become enormous on wide screens */
+  width: min(420px, 86vw);          /* card width (will grow on tablet/desktop up to 420px) */
+  max-width: 520px;                /* prevent extremely large on very large screens */
+  aspect-ratio: 9 / 16;            /* ensure correct magazine portrait aspect — keeps the full layout visible */
+  border-radius: 14px;
+  overflow: hidden;
+  display: block;
+  box-shadow: 0 18px 40px rgba(3,10,18,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  background: #000; /* fallback while image loads */
+  -webkit-backface-visibility: hidden;
+}
+
+/* Final image: fill card horizontally, keep entire image visible (no cropping) */
+.final-image {
+  width: 100%;       /* fills card width exactly */
+  height: 100%;
+  object-fit: contain; /* contain ensures entire composed image is visible (no cropped sides) */
+  display: block;    /* removes default inline image gap */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Controls area */
+.final-controls {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Responsive tweaks */
+/* On tablets — allow larger card so image appears more expansive */
+@media (min-width: 900px) and (max-width: 1366px) {
+  .final-card {
+    width: 480px;
+    aspect-ratio: 9 / 16;
+  }
+}
+
+/* Very large screens — afford a wider card */
+@media (min-width: 1366px) {
+  .final-card {
+    width: 520px;
+  }
+}
+
+/* Tight mobile screens — reduce card for comfortable fit */
+@media (max-width: 420px) {
+  .final-card {
+    width: calc(92vw);
+    border-radius: 10px;
+  }
+  .final-title {
+    font-size: 1.4rem;
+  }
+}

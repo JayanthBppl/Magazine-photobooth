@@ -1,22 +1,155 @@
-.custom-btn {
-  border: none;
-  border-radius: 25px;
-  padding: 5px 15px;
+/* === Background Container === */
+.camera-container {
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(160deg, #000000, #1a1a1a 80%);
+  display: flex;
+  justify-content: center;
+  align-items: center; /* <-- vertical + horizontal centering */
   color: white;
-  font-weight: 500;
+  font-family: "Poppins", sans-serif;
+  overflow: hidden;
+  text-align: center;
+}
+
+/* === Centered Inner Box === */
+.camera-center-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 30px 40px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(236, 0, 140, 0.3);
+}
+
+/* === Title === */
+.camera-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  text-transform: uppercase;
+  text-shadow: 0 0 15px rgba(236, 0, 140, 0.7);
+}
+
+/* === Camera Frame === */
+.camera-frame {
+  position: relative;
+  width: 300px;
+  height: 500px;
+  border: 3px solid #ec008c;
+  
+  overflow: hidden;
+  box-shadow: 0 0 25px #ec008c, 0 0 50px #f7931e;
+  background: black;
+  margin-bottom: 25px;
+}
+
+/* === Video Feed === */
+.video-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* === Overlay === */
+.overlay-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* === Countdown === */
+.countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 5rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 20px #ec008c, 0 0 40px #f7931e;
+  animation: pulse 1s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
+/* === Capture Button === */
+.capture-btn {
+  background: linear-gradient(90deg, #ec008c, #f7931e);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 40px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 0 15px rgba(236, 0, 140, 0.5);
+  transition: all 0.3s ease;
 }
 
-.custom-btn:hover {
+.capture-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 25px rgba(247, 147, 30, 0.6);
 }
 
-.retake-btn {
-  background-color: #c05614; /* pink-red */
+.capture-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.next-btn {
-  background-color: #2fa761; /* green */
+/* === Responsiveness === */
+@media (max-width: 1200px) {
+  .camera-frame {
+    width: 280px;
+    height: 450px;
+  }
+  .camera-title {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .camera-frame {
+    width: 260px;
+    height: 450px;
+  }
+  .camera-title {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .camera-frame {
+    width: 240px;
+    height: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .camera-frame {
+    width: 200px;
+    height: 320px;
+  }
+  .camera-title {
+    font-size: 1rem;
+  }
+  .capture-btn {
+    font-size: 0.9rem;
+    padding: 10px 30px;
+  }
 }

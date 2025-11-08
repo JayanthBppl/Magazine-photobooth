@@ -1,57 +1,163 @@
-@import url('https://fonts.googleapis.com/css2?family=Luxurious+Roman&display=swap');
-.card {
+/* === Layout Display === */
+.layout-display-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 14vw; /* dynamic padding ensures arrows stay outside */
+  box-sizing: border-box;
+}
 
+/* === Layout Image === */
+.layout-wrapper {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.4s ease;
+}
+
+.layout-image {
+  width: 350px;
+  max-width: 85vw;
+  height: 500px;
+  
+  box-shadow: 0 0 35px rgba(236, 0, 140, 0.6);
+  transition: transform 0.6s ease, opacity 0.6s ease;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.fade-transition .layout-image {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.layout-image.active {
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+/* === Navigation Arrows === */
+.nav-arrow {
+  font-size: 2rem;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25);
-}
-.header{
-    font-family: "Luxurious Roman", serif;
-    font-size: 40px;
-    font-weight: 500;
-    color: black;
-}
-
-
-/* .layout-selection-container::before {
-  content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(91, 89, 89, 0.5); 
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  box-shadow: 0 0 20px rgba(236, 0, 140, 0.6);
 }
 
-/* background: linear-gradient(
-    135deg, 
-    #5e5c5c 0%,   
-    #c1c0bd 50%,  
-    #3f3f3e 100%  
-  ); */
- .layout-selection-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* center horizontally */
-  justify-content: flex-start; /* align to top */
-  padding: 0; /* remove container padding */
-  margin-top: 0; /* remove extra margin */
+/* Position arrows outside the layout image */
+.nav-arrow.left {
+  left: calc(50% - 300px - 80px); /* layout half width + spacing */
 }
 
-.layout-selection-container h2.header {
-  margin: 1rem 0; /* control spacing above and below */
+.nav-arrow.right {
+  right: calc(50% - 300px - 80px);
 }
 
-.layout-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* center all items horizontally */
-  gap: 2rem; /* spacing between cards */
-  max-width: 1200px;
-  width: 100%;
+/* Smooth hover animation */
+.nav-arrow:hover {
+  background: linear-gradient(90deg, #ec008c, #f7931e);
+  transform: translateY(-50%) scale(1.1);
+}
+
+/* === Responsiveness === */
+
+/* Large Screens */
+@media (min-width: 1400px) {
+  .nav-arrow.left {
+    left: calc(50% - 350px - 100px);
+  }
+  .nav-arrow.right {
+    right: calc(50% - 350px - 100px);
+  }
+}
+
+/* iPad & Tablets (Horizontal) */
+@media (max-width: 1200px) {
+  .layout-image {
+    width: 380px;
+  }
+
+  .nav-arrow {
+    width: 65px;
+    height: 65px;
+    font-size: 2.8rem;
+  }
+
+  .nav-arrow.left {
+    left: calc(50% - 260px - 60px);
+  }
+  .nav-arrow.right {
+    right: calc(50% - 260px - 60px);
+  }
+}
+
+/* Tablets (Vertical & iPad Pro) */
+@media (max-width: 1024px) {
+  .layout-image {
+    width: 360px;
+  }
+
+  .nav-arrow.left {
+    left: calc(50% - 240px - 50px);
+  }
+  .nav-arrow.right {
+    right: calc(50% - 240px - 50px);
+  }
+}
+
+/* Medium Tablets */
+@media (max-width: 820px) {
+  .layout-image {
+    width: 320px;
+  }
+
+  .nav-arrow {
+    width: 55px;
+    height: 55px;
+    font-size: 2.5rem;
+  }
+
+  .nav-arrow.left {
+    left: calc(50% - 220px - 45px);
+  }
+  .nav-arrow.right {
+    right: calc(50% - 220px - 45px);
+  }
+}
+
+/* Mobile Devices */
+@media (max-width: 576px) {
+  .layout-image {
+    width: 240px;
+  }
+
+  .nav-arrow {
+    width: 45px;
+    height: 45px;
+    font-size: 2rem;
+  }
+
+  .nav-arrow.left {
+    left: calc(50% - 170px - 20px);
+  }
+  .nav-arrow.right {
+    right: calc(50% - 170px - 20px);
+  }
 }
