@@ -18,76 +18,74 @@ const CameraPage = () => {
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [hasStartedCamera, setHasStartedCamera] = useState(false);
 
-   const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
+  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
   // const BASE_URL = "http://localhost:5000";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
-  // Portrait ratio — must match backend composition dimensions
   const FRAME_WIDTH = 720;
   const FRAME_HEIGHT = 1280;
 
-  /** 🎥 Detect available cameras **/
+  /** ✅ Detect cameras */
   useEffect(() => {
-    const loadCameras = async () => {
+    const detectCameras = async () => {
       try {
         const devicesList = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
         setDevices(videoInputs);
-        if (videoInputs.length > 0) {
-          // Default to front camera (if labeled)
-          const frontCam = videoInputs.find((d) =>
-            d.label.toLowerCase().includes("front")
-          );
-          setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0].deviceId);
-        }
+
+        // Prefer front camera if available
+        const frontCam = videoInputs.find((d) =>
+          d.label.toLowerCase().includes("front")
+        );
+        setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null);
       } catch (err) {
         console.error("Camera detection error:", err);
       }
     };
-    loadCameras();
+    detectCameras();
   }, []);
 
-  /** 🎥 Start camera stream **/
-  useEffect(() => {
-    const startCamera = async () => {
-      if (!selectedDeviceId) return;
+  /** ✅ Start inbuilt camera automatically (front by default) */
+  const startCamera = async () => {
+    try {
+      // For iPad and Android tablets: use facingMode for built-in cam
+      const constraints = {
+        video: {
+          facingMode: { ideal: "user" }, // 'user' → front cam, 'environment' → rear cam
+          width: { ideal: FRAME_WIDTH },
+          height: { ideal: FRAME_HEIGHT },
+        },
+        audio: false,
+      };
 
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            deviceId: { exact: selectedDeviceId },
-            width: { ideal: FRAME_WIDTH },
-            height: { ideal: FRAME_HEIGHT },
-          },
-          audio: false,
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setIsCameraReady(true);
-          setPermissionDenied(false);
-        }
-      } catch (err) {
-        console.error("Camera error:", err);
-        if (err.name === "NotAllowedError") {
-          setPermissionDenied(true);
-        } else {
-          alert("Unable to access your camera. Please enable permissions.");
-        }
+      // If a specific device is chosen (manual switch)
+      if (selectedDeviceId) {
+        constraints.video.deviceId = { exact: selectedDeviceId };
       }
-    };
 
-    startCamera();
-
-    return () => {
-      if (videoRef.current?.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        setIsCameraReady(true);
+        setPermissionDenied(false);
+        setHasStartedCamera(true);
       }
-    };
-  }, [selectedDeviceId]);
+    } catch (err) {
+      console.error("Camera start error:", err);
+      if (err.name === "NotAllowedError") {
+        setPermissionDenied(true);
+        alert("Please allow camera access in your browser settings.");
+      } else if (err.name === "NotFoundError") {
+        alert("No inbuilt camera detected. Please check your device permissions.");
+      } else {
+        alert("Unable to access the inbuilt camera. Please enable camera access.");
+      }
+    }
+  };
 
-  /** 📸 Capture and remove background **/
+  /** 📸 Capture and remove background */
   const captureAndRemoveBG = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -99,11 +97,10 @@ const CameraPage = () => {
     }
 
     setProcessing(true);
-
     canvas.width = FRAME_WIDTH;
     canvas.height = FRAME_HEIGHT;
 
-    // Mirror image horizontally (selfie view)
+    // Mirror horizontally for selfie view
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(video, -FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
@@ -141,7 +138,7 @@ const CameraPage = () => {
     }
   };
 
-  /** ⏱ Countdown before capture **/
+  /** ⏱ Countdown */
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
     setCountdown(3);
@@ -157,10 +154,28 @@ const CameraPage = () => {
     }, 1000);
   };
 
+  /** 🔁 Switch camera manually */
   const handleCameraChange = (e) => {
     const newDeviceId = e.target.value;
     setSelectedDeviceId(newDeviceId);
+    setIsCameraReady(false);
+    setHasStartedCamera(false);
+    startCamera(); // restart with new device
   };
+
+  /** 🚀 Auto-start camera on mount for built-in devices (tab, phone, laptop) */
+  useEffect(() => {
+    const autoStart = async () => {
+      // Only trigger automatically if permissions exist
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        startCamera();
+      } catch {
+        console.log("Awaiting user gesture to allow camera access...");
+      }
+    };
+    autoStart();
+  }, []);
 
   return (
     <div className="camera-container">
@@ -186,6 +201,26 @@ const CameraPage = () => {
               ))}
             </select>
           </div>
+        )}
+
+        {/* 🚀 Manual Start Button (if permission not yet granted) */}
+        {!hasStartedCamera && (
+          <button
+            className="start-camera-btn"
+            onClick={startCamera}
+            style={{
+              background: "linear-gradient(90deg, #ec008c, #f7931e)",
+              color: "#fff",
+              border: "none",
+              padding: "10px 24px",
+              borderRadius: "8px",
+              marginBottom: "20px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Start Camera
+          </button>
         )}
 
         {/* 🎥 Camera Frame */}
