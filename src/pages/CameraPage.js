@@ -47,20 +47,18 @@ const CameraPage = () => {
     detectCameras();
   }, []);
 
-  /** ✅ Start inbuilt camera automatically (front by default) */
+  /** ✅ Start camera (default or selected) */
   const startCamera = async () => {
     try {
-      // For iPad and Android tablets: use facingMode for built-in cam
       const constraints = {
         video: {
-          facingMode: { ideal: "user" }, // 'user' → front cam, 'environment' → rear cam
+          facingMode: { ideal: "user" },
           width: { ideal: FRAME_WIDTH },
           height: { ideal: FRAME_HEIGHT },
         },
         audio: false,
       };
 
-      // If a specific device is chosen (manual switch)
       if (selectedDeviceId) {
         constraints.video.deviceId = { exact: selectedDeviceId };
       }
@@ -78,15 +76,15 @@ const CameraPage = () => {
         setPermissionDenied(true);
         alert("Please allow camera access in your browser settings.");
       } else if (err.name === "NotFoundError") {
-        alert("No inbuilt camera detected. Please check your device permissions.");
+        alert("No camera detected on your device.");
       } else {
-        alert("Unable to access the inbuilt camera. Please enable camera access.");
+        alert("Unable to access camera. Please enable permissions.");
       }
     }
   };
 
-  /** 📸 Capture and remove background */
-  const captureAndRemoveBG = async () => {
+  /** 📸 Capture + Remove BG + Compose (Single API) */
+  const captureAndProcessImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -100,7 +98,6 @@ const CameraPage = () => {
     canvas.width = FRAME_WIDTH;
     canvas.height = FRAME_HEIGHT;
 
-    // Mirror horizontally for selfie view
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(video, -FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
@@ -109,36 +106,37 @@ const CameraPage = () => {
     const capturedData = canvas.toDataURL("image/png");
 
     try {
-      const response = await fetch(`${BASE_URL}/remove-bg`, {
+      const response = await fetch(`${BASE_URL}/process-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filepath: capturedData }),
+        body: JSON.stringify({
+          imageData: capturedData,
+          layoutId,
+        }),
       });
 
       const data = await response.json();
-      if (!data.success) throw new Error("Background removal failed!");
+      if (!data.success) throw new Error("Image processing failed!");
 
-      const bgRemovedImage = "data:image/png;base64," + data.data.result_b64;
-      setProcessedImage(bgRemovedImage);
+      console.log("✅ Final composed image received");
+      setProcessedImage(data.finalImage);
       setLayout(layoutId);
 
       navigate("/final", {
         state: {
           layoutId,
-          processedImage: bgRemovedImage,
-          frameWidth: FRAME_WIDTH,
-          frameHeight: FRAME_HEIGHT,
+          finalImage: data.finalImage,
         },
       });
     } catch (err) {
-      console.error("Error while processing image:", err);
-      alert("Failed to process image.");
+      console.error("Error processing image:", err);
+      alert("Failed to process image. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
 
-  /** ⏱ Countdown */
+  /** ⏱ Countdown before capture */
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
     setCountdown(3);
@@ -147,31 +145,30 @@ const CameraPage = () => {
         if (prev <= 1) {
           clearInterval(timer);
           setCountdown(0);
-          captureAndRemoveBG();
+          captureAndProcessImage();
         }
         return prev - 1;
       });
     }, 1000);
   };
 
-  /** 🔁 Switch camera manually */
+  /** 🔁 Switch camera */
   const handleCameraChange = (e) => {
     const newDeviceId = e.target.value;
     setSelectedDeviceId(newDeviceId);
     setIsCameraReady(false);
     setHasStartedCamera(false);
-    startCamera(); // restart with new device
+    startCamera();
   };
 
-  /** 🚀 Auto-start camera on mount for built-in devices (tab, phone, laptop) */
+  /** 🚀 Auto-start on mount */
   useEffect(() => {
     const autoStart = async () => {
-      // Only trigger automatically if permissions exist
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
         startCamera();
       } catch {
-        console.log("Awaiting user gesture to allow camera access...");
+        console.log("Awaiting user gesture for camera...");
       }
     };
     autoStart();
@@ -182,7 +179,6 @@ const CameraPage = () => {
       <div className="camera-center-box">
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
-        {/* 🔄 Camera Selector */}
         {devices.length > 1 && (
           <div className="camera-select-box">
             <label htmlFor="cameraSelect" className="camera-select-label">
@@ -203,7 +199,6 @@ const CameraPage = () => {
           </div>
         )}
 
-        {/* 🚀 Manual Start Button (if permission not yet granted) */}
         {!hasStartedCamera && (
           <button
             className="start-camera-btn"
@@ -223,7 +218,6 @@ const CameraPage = () => {
           </button>
         )}
 
-        {/* 🎥 Camera Frame */}
         <div className="camera-frame">
           <video
             ref={videoRef}
@@ -239,7 +233,6 @@ const CameraPage = () => {
 
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
-        {/* 📸 Capture Button */}
         <button
           className="capture-btn"
           onClick={startCountdown}

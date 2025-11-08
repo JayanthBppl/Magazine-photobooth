@@ -137,68 +137,55 @@ app.post("/retake", async (req, res) => {
   }
 });
 
-// ----------------- Background Removal ----------------- //
-app.post("/remove-bg", upload.single("image"), async (req, res) => {
+app.post("/process-image", async (req, res) => {
   try {
-    let fileBuffer, fileName;
+    const { imageData, layoutId } = req.body;
 
-    if (req.file) {
-      fileBuffer = req.file.buffer;
-      fileName = req.file.originalname;
-    } else if (req.body.filepath) {
-      const response = await axios.get(req.body.filepath, {
-        responseType: "arraybuffer",
-      });
-      fileBuffer = response.data;
-      fileName = path.basename(req.body.filepath);
-    } else {
-      return res.status(400).json({ error: "No image provided" });
-    }
-
-    const formData = new FormData();
-    formData.append("image_file", fileBuffer, fileName);
-    formData.append("size", "auto");
-
-    const response = await axios.post(
-      "https://api.remove.bg/v1.0/removebg",
-      formData,
-      {
-        headers: {
-          ...formData.getHeaders(),
-          "X-Api-Key": process.env.REMOVEBG_KEY,
-        },
-        responseType: "arraybuffer",
-      }
-    );
-
-    const base64Image = Buffer.from(response.data, "binary").toString("base64");
-    res.json({ success: true, data: { result_b64: base64Image } });
-  } catch (error) {
-    console.error("Remove.bg Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Background removal failed" });
-  }
-});
-
-
-
-// ✅ FINAL /compose-final endpoint
-app.post("/compose-final", async (req, res) => {
-  try {
-    const { userImage, layoutId, frameWidth, frameHeight } = req.body;
-
-    if (!userImage || !layoutId) {
+    if (!imageData || !layoutId) {
       return res.status(400).json({
         success: false,
-        message: "Missing userImage or layoutId",
+        message: "Missing imageData or layoutId",
       });
     }
 
-    // --- Base Directories ---
+    console.log(`🧩 Processing and composing image for layout: ${layoutId}`);
+
+    // === Step 1: Decode base64 camera image ===
+    let base64Data = imageData;
+    if (base64Data.startsWith("data:image")) {
+      base64Data = base64Data.split(",")[1];
+    }
+
+    const inputBuffer = Buffer.from(base64Data, "base64");
+    if (!inputBuffer || inputBuffer.length < 1000) {
+      throw new Error("Invalid or empty camera image buffer");
+    }
+
+    // === Step 2: Remove background via Remove.bg ===
+    const formData = new FormData();
+    formData.append("image_file", inputBuffer, "camera.png");
+    formData.append("size", "auto");
+
+    console.log("🎨 Removing background...");
+    const bgResponse = await axios.post("https://api.remove.bg/v1.0/removebg", formData, {
+      headers: {
+        ...formData.getHeaders(),
+        "X-Api-Key": process.env.REMOVEBG_KEY,
+      },
+      responseType: "arraybuffer",
+    });
+
+    const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
+    const bgRemovedBase64 = `data:image/png;base64,${bgRemovedBuffer.toString("base64")}`;
+
+    const bgMeta = await sharp(bgRemovedBuffer).metadata();
+    console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
+
+    // === Step 3: Compose with layout and overlay ===
     const baseDir = path.join(__dirname, "assets");
     const outputDir = path.join(__dirname, "final-images");
     await fs.promises.mkdir(outputDir, { recursive: true });
 
-    // --- Layout Paths ---
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
@@ -210,74 +197,57 @@ app.post("/compose-final", async (req, res) => {
       });
     }
 
-    console.log(`🧩 Composing final image using layout: ${layoutId}`);
+    const LAYOUT_WIDTH = 720;
+    const LAYOUT_HEIGHT = 1280;
 
-    // --- Load All Files ---
     const [layoutBuffer, layerBuffer] = await Promise.all([
-      fs.promises.readFile(layoutPath),
-      fs.promises.readFile(layerPath),
+      sharp(layoutPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
+      sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
     ]);
 
-    // Convert user base64 → Buffer
-    const userBuffer = Buffer.from(
-      userImage.replace(/^data:image\/\w+;base64,/, ""),
-      "base64"
-    );
-
-    // Use frontend capture dimensions (default 720x1280)
-    const WIDTH = frameWidth || 720;
-    const HEIGHT = frameHeight || 1280;
-
-    // --- Step 1: Resize layout & layer exactly to frame size ---
-    const layoutResized = await sharp(layoutBuffer)
-      .resize(WIDTH, HEIGHT)
+    const normalizedUserBuffer = await sharp(bgRemovedBuffer)
+      .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
+      .ensureAlpha()
       .toBuffer();
 
-    const layerResized = await sharp(layerBuffer)
-      .resize(WIDTH, HEIGHT)
-      .toBuffer();
+    console.log("🧩 Composing final image...");
 
-    // --- Step 2: Ensure user image is same size (no scaling, just crop/pad) ---
-    const processedUser = await sharp(userBuffer)
-      .resize({
-        width: WIDTH,
-        height: HEIGHT,
-        fit: "fill", // keep full frame, no aspect adjustments
-      })
-      .toBuffer();
-
-    // --- Step 3: Composite all layers in correct order ---
-    const composedImage = await sharp(layoutResized)
+    const composedImage = await sharp(layoutBuffer)
       .composite([
-        { input: processedUser, top: 0, left: 0, blend: "over" }, // exact overlay
-        { input: layerResized, top: 0, left: 0, blend: "over" }, // overlay graphics
+        { input: normalizedUserBuffer, blend: "over" },
+        { input: layerBuffer, blend: "over" },
       ])
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    // --- Step 4: Save locally & respond ---
-    const filename = `final_${layoutId}_${Date.now()}.jpg`;
-    const filepath = path.join(outputDir, filename);
-    await fs.promises.writeFile(filepath, composedImage);
-
-    console.log(`✅ Final composed image saved: ${filename}`);
+    const outputFilename = `final_${layoutId}_${Date.now()}.jpg`;
+    const outputPath = path.join(outputDir, outputFilename);
+    await fs.promises.writeFile(outputPath, composedImage);
 
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
 
+    console.log(`✅ Final composed image saved: ${outputFilename}`);
+
     res.json({
       success: true,
-      message: "Image composed successfully",
-      finalImageData: finalBase64,
-      localPath: filepath,
+      message: "Final composed image generated successfully",
+      finalImage: finalBase64,
+      info: {
+        layout: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
+        bgRemoved: { width: bgMeta.width, height: bgMeta.height },
+        outputPath,
+      },
     });
-  } catch (err) {
-    console.error("❌ Compose error:", err);
+  } catch (error) {
+    console.error("❌ Unified processing error:", error);
     res.status(500).json({
       success: false,
-      message: err.message || "Failed to compose image",
+      message: error.message || "Failed to process and compose image",
     });
   }
 });
+
+
 
 
 
