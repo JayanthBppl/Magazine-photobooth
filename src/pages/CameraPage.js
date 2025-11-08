@@ -21,10 +21,10 @@ const CameraPage = () => {
   const [hasStartedCamera, setHasStartedCamera] = useState(false);
 
   const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
-  // const BASE_URL = "http://localhost:5000";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
-  const FRAME_WIDTH = 720;
+  // 📏 Capture size optimized for iPad Air 2
+  const FRAME_WIDTH = 960;
   const FRAME_HEIGHT = 1280;
 
   /** ✅ Detect cameras */
@@ -39,7 +39,9 @@ const CameraPage = () => {
         const frontCam = videoInputs.find((d) =>
           d.label.toLowerCase().includes("front")
         );
-        setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null);
+        setSelectedDeviceId(
+          frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null
+        );
       } catch (err) {
         console.error("Camera detection error:", err);
       }
@@ -53,8 +55,8 @@ const CameraPage = () => {
       const constraints = {
         video: {
           facingMode: { ideal: "user" },
-          width: { ideal: FRAME_WIDTH },
-          height: { ideal: FRAME_HEIGHT },
+          width: { ideal: FRAME_WIDTH, max: FRAME_WIDTH },
+          height: { ideal: FRAME_HEIGHT, max: FRAME_HEIGHT },
         },
         audio: false,
       };
@@ -99,7 +101,7 @@ const CameraPage = () => {
     canvas.height = FRAME_HEIGHT;
 
     ctx.save();
-    ctx.scale(-1, 1);
+    ctx.scale(-1, 1); // mirror selfie
     ctx.drawImage(video, -FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
     ctx.restore();
 
@@ -218,7 +220,17 @@ const CameraPage = () => {
           </button>
         )}
 
-        <div className="camera-frame">
+        <div
+          className="camera-frame"
+          style={{
+            width: `${FRAME_WIDTH / 2}px`,
+            height: `${FRAME_HEIGHT / 2}px`,
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: "12px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
+        >
           <video
             ref={videoRef}
             autoPlay

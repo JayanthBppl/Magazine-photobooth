@@ -150,14 +150,14 @@ app.post("/process-image", async (req, res) => {
 
     console.log(`🧩 Processing and composing image for layout: ${layoutId}`);
 
-    // === Step 1: Decode base64 image ===
+    // === Step 1: Decode Base64 from Frontend ===
     let base64Data = imageData;
     if (base64Data.startsWith("data:image")) {
       base64Data = base64Data.split(",")[1];
     }
     const inputBuffer = Buffer.from(base64Data, "base64");
 
-    // === Step 2: Remove background ===
+    // === Step 2: Remove Background via Remove.bg ===
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
@@ -175,11 +175,8 @@ app.post("/process-image", async (req, res) => {
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
     console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
 
-    // === Step 3: Load layout and overlay ===
+    // === Step 3: Setup Layout Paths ===
     const baseDir = path.join(__dirname, "assets");
-    const outputDir = path.join(__dirname, "final-images");
-    await fs.promises.mkdir(outputDir, { recursive: true });
-
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
@@ -191,65 +188,50 @@ app.post("/process-image", async (req, res) => {
       });
     }
 
-    const LAYOUT_WIDTH = 720;
-    const LAYOUT_HEIGHT = 1280;
+    // === Step 4: Define Layout Resolution (High-Quality Portrait) ===
+    const LAYOUT_WIDTH = 1200;
+    const LAYOUT_HEIGHT = 1600;
 
     const [layoutBuffer, layerBuffer] = await Promise.all([
       sharp(layoutPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
     ]);
 
-    // === Step 4: Resize user intelligently ===
-    // - Scale so person fills about 90% of layout height
-    // - Maintain proportions
-    const TARGET_HEIGHT = Math.round(LAYOUT_HEIGHT * 0.9);
-    const scaleFactor = TARGET_HEIGHT / bgMeta.height;
-    const TARGET_WIDTH = Math.round(bgMeta.width * scaleFactor);
+    // === Step 5: Compute Position — Center Horizontally, Lower Vertically ===
+    const userWidth = bgMeta.width;
+    const userHeight = bgMeta.height;
 
-    const resizedUserBuffer = await sharp(bgRemovedBuffer)
-      .resize({
-        width: TARGET_WIDTH,
-        height: TARGET_HEIGHT,
-        fit: "inside",
-      })
-      .toBuffer();
+    const left = Math.round((LAYOUT_WIDTH - userWidth) / 2);
 
-    const resizedMeta = await sharp(resizedUserBuffer).metadata();
-
-    // === Step 5: Position person ===
-    // Center horizontally, align slightly above bottom
-    const left = Math.round((LAYOUT_WIDTH - resizedMeta.width) / 2);
-    const top = Math.round(LAYOUT_HEIGHT - resizedMeta.height - (LAYOUT_HEIGHT * 0.02)); // small bottom margin
+    // ⬇️ Vertical offset — move slightly lower than center (adjustable)
+    // 80–100 px gives that “poster-style” framing effect
+    const verticalOffset = 100;
+    const top = Math.round((LAYOUT_HEIGHT - userHeight) / 2 + verticalOffset);
 
     console.log(
-      `🧮 Position user: left=${left}, top=${top}, size=${resizedMeta.width}x${resizedMeta.height}`
+      `🧮 Positioning user image: left=${left}, top=${top}, offset=${verticalOffset}`
     );
 
-    // === Step 6: Compose final ===
+    // === Step 6: Composite (Layout → User → Layer) ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
-        { input: resizedUserBuffer, left, top, blend: "over" },
+        { input: bgRemovedBuffer, left, top, blend: "over" },
         { input: layerBuffer, blend: "over" },
       ])
-      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
+      .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const outputFilename = `final_${layoutId}_${Date.now()}.jpg`;
-    const outputPath = path.join(outputDir, outputFilename);
-    await fs.promises.writeFile(outputPath, composedImage);
-
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
-
-    console.log(`✅ Final composed image saved: ${outputFilename}`);
+    console.log("✅ Final image composed successfully!");
 
     res.json({
       success: true,
-      message: "Final composed image generated successfully (portrait-fit)",
+      message: "Perfectly composed final image generated",
       finalImage: finalBase64,
       info: {
-        layout: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
-        bgRemoved: { width: bgMeta.width, height: bgMeta.height },
-        resized: { width: resizedMeta.width, height: resizedMeta.height, left, top },
+        layoutSize: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
+        userSize: { width: userWidth, height: userHeight },
+        offset: { top, left },
       },
     });
   } catch (error) {
@@ -260,6 +242,7 @@ app.post("/process-image", async (req, res) => {
     });
   }
 });
+
 
 
 
