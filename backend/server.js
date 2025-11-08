@@ -181,9 +181,10 @@ app.post("/remove-bg", upload.single("image"), async (req, res) => {
 
 
 
+// ✅ FINAL /compose-final endpoint
 app.post("/compose-final", async (req, res) => {
   try {
-    const { userImage, layoutId } = req.body;
+    const { userImage, layoutId, frameWidth, frameHeight } = req.body;
 
     if (!userImage || !layoutId) {
       return res.status(400).json({
@@ -192,12 +193,10 @@ app.post("/compose-final", async (req, res) => {
       });
     }
 
-    // Base directories
     const baseDir = path.join(__dirname, "assets");
     const outputDir = path.join(__dirname, "final-images");
     await fs.promises.mkdir(outputDir, { recursive: true });
 
-    // Layout and layer paths
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
@@ -209,92 +208,64 @@ app.post("/compose-final", async (req, res) => {
       });
     }
 
-    console.log(`🧩 Composing final image using layout: ${layoutId}`);
+    console.log(`🧩 Composing final image using ${layoutId}`);
 
-    // Load layout and layer images
     const [layoutBuffer, layerBuffer] = await Promise.all([
       fs.promises.readFile(layoutPath),
       fs.promises.readFile(layerPath),
     ]);
 
-    // Decode user image (base64)
     const userBuffer = Buffer.from(
       userImage.replace(/^data:image\/\w+;base64,/, ""),
       "base64"
     );
 
-    // Get layout metadata
-    const layoutMeta = await sharp(layoutBuffer).metadata();
-    const layoutWidth = Math.round(layoutMeta.width);
-    const layoutHeight = Math.round(layoutMeta.height);
+    // Match frontend preview aspect ratio exactly
+    const WIDTH = frameWidth || 720;
+    const HEIGHT = frameHeight || 1280;
 
-    // 🧠 NEW: Resize user image to MATCH full layout width, not height
-    const resizedUserBuffer = await sharp(userBuffer)
-      .resize({
-        width: layoutWidth,
-        height: layoutHeight,
-        fit: "cover", // Ensures the full frame is covered (like CSS object-fit: cover)
-        position: "centre",
-      })
-      .png()
+    // Resize layout and layer to match frame
+    const resizedLayout = await sharp(layoutBuffer)
+      .resize(WIDTH, HEIGHT)
       .toBuffer();
 
-    // 🧠 Composite: user fills full frame + overlay layer + layout background
-    const composedImage = await sharp(layoutBuffer)
+    const resizedLayer = await sharp(layerBuffer)
+      .resize(WIDTH, HEIGHT)
+      .toBuffer();
+
+    // Resize user image to exact frame (no crop)
+    const resizedUser = await sharp(userBuffer)
+      .resize(WIDTH, HEIGHT, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .toBuffer();
+
+    // Final composition: layout → user → overlay
+    const finalImage = await sharp(resizedLayout)
       .composite([
-        { input: resizedUserBuffer, blend: "over" },
-        { input: layerBuffer, blend: "over" },
+        { input: resizedUser, blend: "over" },
+        { input: resizedLayer, blend: "over" },
       ])
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    // Save locally
-    const timestamp = Date.now();
-    const outputFilename = `final_${layoutId}_${timestamp}.jpg`;
-    const outputPath = path.join(outputDir, outputFilename);
-    await fs.promises.writeFile(outputPath, composedImage);
+    const fileName = `final_${layoutId}_${Date.now()}.jpg`;
+    const filePath = path.join(outputDir, fileName);
+    await fs.promises.writeFile(filePath, finalImage);
 
-    console.log(`✅ Saved locally: ${outputFilename}`);
+    console.log(`✅ Final composed image saved: ${fileName}`);
 
-    // ☁️ Upload to Cloudinary
-    let uploadResult = null;
-    try {
-      uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "photo-booth-finals",
-            public_id: `final_${layoutId}_${timestamp}`,
-            resource_type: "image",
-            overwrite: true,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(composedImage);
-      });
-
-      console.log(`☁️ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
-    } catch (cloudErr) {
-      console.warn("⚠️ Cloudinary upload failed:", cloudErr.message);
-    }
-
-    // Encode for immediate frontend preview
-    const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
+    const finalBase64 = `data:image/jpeg;base64,${finalImage.toString("base64")}`;
 
     res.json({
       success: true,
-      message: "Image composed successfully",
+      message: "Composed successfully",
       finalImageData: finalBase64,
-      localPath: outputPath,
-      cloudinaryUrl: uploadResult?.secure_url || null,
+      localPath: filePath,
     });
   } catch (err) {
-    console.error("❌ Compose error:", err);
+    console.error("❌ Composition error:", err);
     res.status(500).json({
       success: false,
-      message: err.message || "Failed to compose and upload image",
+      message: err.message || "Failed to compose image",
     });
   }
 });

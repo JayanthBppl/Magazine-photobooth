@@ -24,6 +24,7 @@ function UserAndLayoutPage() {
   ];
 
   const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
+  // const BASE_URL = "http://localhost:5000";
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -162,15 +162,15 @@ body {
 /* Tablets (Landscape iPad Pro, Air) */
 @media (max-width: 1024px) {
   .myntra-main-logo {
-    width: 200px;
+    width: 230px;
   }
 
   .page-title {
-    font-size: 2rem;
+    font-size: 2.2rem;
   }
 
   .user-form-card {
-    max-width: 480px;
+    max-width: 520px;
     transform: scale(1.05);
   }
 
@@ -183,31 +183,31 @@ body {
 /* Tablets (Portrait) */
 @media (max-width: 820px) {
   .myntra-main-logo {
-    width: 200px;
+    width: 230px;
   }
 
   .page-title {
-    font-size: 1.9rem;
+    font-size: 2.0rem;
   }
 
   .user-form-card {
-    max-width: 500px;
+    max-width: 700px;
   }
 }
 
 /* Mobile Devices */
 @media (max-width: 576px) {
   .myntra-main-logo {
-    width: 120px;
+    width: 150px;
   }
 
   .page-title {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
   }
 
   .user-form-card {
     width: 90%;
-    max-width: 320px;
+    max-width: 420px;
   }
 
   .btn-primary,

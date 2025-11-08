@@ -15,14 +15,19 @@ const CameraPage = () => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [devices, setDevices] = useState([]); // list of cameras
-  const [selectedDeviceId, setSelectedDeviceId] = useState(null); // active camera
+  const [devices, setDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
-  // ⚙️ API base
-  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+   const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
+  // const BASE_URL = "http://localhost:5000";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
-  /** 🎥 Detect and load available cameras **/
+  // Portrait ratio — must match backend composition dimensions
+  const FRAME_WIDTH = 720;
+  const FRAME_HEIGHT = 1280;
+
+  /** 🎥 Detect available cameras **/
   useEffect(() => {
     const loadCameras = async () => {
       try {
@@ -30,7 +35,11 @@ const CameraPage = () => {
         const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
         setDevices(videoInputs);
         if (videoInputs.length > 0) {
-          setSelectedDeviceId(videoInputs[0].deviceId); // default first camera
+          // Default to front camera (if labeled)
+          const frontCam = videoInputs.find((d) =>
+            d.label.toLowerCase().includes("front")
+          );
+          setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0].deviceId);
         }
       } catch (err) {
         console.error("Camera detection error:", err);
@@ -39,17 +48,17 @@ const CameraPage = () => {
     loadCameras();
   }, []);
 
-  /** 🎥 Start Camera Stream **/
+  /** 🎥 Start camera stream **/
   useEffect(() => {
     const startCamera = async () => {
       if (!selectedDeviceId) return;
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             deviceId: { exact: selectedDeviceId },
-            facingMode: "user",
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
+            width: { ideal: FRAME_WIDTH },
+            height: { ideal: FRAME_HEIGHT },
           },
           audio: false,
         });
@@ -57,10 +66,15 @@ const CameraPage = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setIsCameraReady(true);
+          setPermissionDenied(false);
         }
       } catch (err) {
         console.error("Camera error:", err);
-        alert("Unable to access your camera!");
+        if (err.name === "NotAllowedError") {
+          setPermissionDenied(true);
+        } else {
+          alert("Unable to access your camera. Please enable permissions.");
+        }
       }
     };
 
@@ -73,7 +87,7 @@ const CameraPage = () => {
     };
   }, [selectedDeviceId]);
 
-  /** 📸 Capture & Remove Background **/
+  /** 📸 Capture and remove background **/
   const captureAndRemoveBG = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -85,30 +99,14 @@ const CameraPage = () => {
     }
 
     setProcessing(true);
-    const canvasWidth = 720;
-    const canvasHeight = 1280;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
 
-    const videoAspect = video.videoWidth / video.videoHeight;
-    const canvasAspect = canvasWidth / canvasHeight;
+    canvas.width = FRAME_WIDTH;
+    canvas.height = FRAME_HEIGHT;
 
-    let sx, sy, sw, sh;
-    if (videoAspect > canvasAspect) {
-      sh = video.videoHeight;
-      sw = sh * canvasAspect;
-      sx = (video.videoWidth - sw) / 2;
-      sy = 0;
-    } else {
-      sw = video.videoWidth;
-      sh = sw / canvasAspect;
-      sx = 0;
-      sy = (video.videoHeight - sh) / 2;
-    }
-
+    // Mirror image horizontally (selfie view)
     ctx.save();
     ctx.scale(-1, 1);
-    ctx.drawImage(video, sx, sy, sw, sh, -canvasWidth, 0, canvasWidth, canvasHeight);
+    ctx.drawImage(video, -FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
     ctx.restore();
 
     const capturedData = canvas.toDataURL("image/png");
@@ -128,7 +126,12 @@ const CameraPage = () => {
       setLayout(layoutId);
 
       navigate("/final", {
-        state: { layoutId, processedImage: bgRemovedImage },
+        state: {
+          layoutId,
+          processedImage: bgRemovedImage,
+          frameWidth: FRAME_WIDTH,
+          frameHeight: FRAME_HEIGHT,
+        },
       });
     } catch (err) {
       console.error("Error while processing image:", err);
@@ -138,11 +141,10 @@ const CameraPage = () => {
     }
   };
 
-  /** ⏱ Countdown **/
+  /** ⏱ Countdown before capture **/
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
     setCountdown(3);
-
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -155,7 +157,6 @@ const CameraPage = () => {
     }, 1000);
   };
 
-  /** 🌐 Handle camera switch **/
   const handleCameraChange = (e) => {
     const newDeviceId = e.target.value;
     setSelectedDeviceId(newDeviceId);
@@ -166,11 +167,11 @@ const CameraPage = () => {
       <div className="camera-center-box">
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
-        {/* 🎛 Camera Selector */}
+        {/* 🔄 Camera Selector */}
         {devices.length > 1 && (
           <div className="camera-select-box">
             <label htmlFor="cameraSelect" className="camera-select-label">
-              Choose Camera:
+              Switch Camera:
             </label>
             <select
               id="cameraSelect"
@@ -187,7 +188,7 @@ const CameraPage = () => {
           </div>
         )}
 
-        {/* 📷 Camera Frame */}
+        {/* 🎥 Camera Frame */}
         <div className="camera-frame">
           <video
             ref={videoRef}
@@ -203,6 +204,7 @@ const CameraPage = () => {
 
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
+        {/* 📸 Capture Button */}
         <button
           className="capture-btn"
           onClick={startCountdown}
@@ -214,6 +216,12 @@ const CameraPage = () => {
             ? "Get Ready..."
             : "Capture Photo"}
         </button>
+
+        {permissionDenied && (
+          <p className="text-warning mt-3">
+            Please allow camera access in your browser settings.
+          </p>
+        )}
       </div>
     </div>
   );
