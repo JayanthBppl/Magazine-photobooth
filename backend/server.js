@@ -150,14 +150,14 @@ app.post("/process-image", async (req, res) => {
 
     console.log(`🧩 Processing and composing image for layout: ${layoutId}`);
 
-    // === Step 1: Decode Base64 from Frontend ===
+    // === Step 1: Decode base64 ===
     let base64Data = imageData;
     if (base64Data.startsWith("data:image")) {
       base64Data = base64Data.split(",")[1];
     }
     const inputBuffer = Buffer.from(base64Data, "base64");
 
-    // === Step 2: Remove Background via Remove.bg ===
+    // === Step 2: Remove background ===
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
@@ -175,7 +175,7 @@ app.post("/process-image", async (req, res) => {
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
     console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
 
-    // === Step 3: Setup Layout Paths ===
+    // === Step 3: Layout setup ===
     const baseDir = path.join(__dirname, "assets");
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
@@ -188,7 +188,7 @@ app.post("/process-image", async (req, res) => {
       });
     }
 
-    // === Step 4: Define Layout Resolution (High-Quality Portrait) ===
+    // === Step 4: Output layout dimensions ===
     const LAYOUT_WIDTH = 1200;
     const LAYOUT_HEIGHT = 1600;
 
@@ -197,51 +197,51 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
     ]);
 
-    // === Step 5: Compute Position — Center Horizontally, Lower Vertically ===
-    const userWidth = bgMeta.width;
-    const userHeight = bgMeta.height;
+    // === Step 5: Scale and Position User ===
+    const scaleFactor = 1.25; // make user slightly larger
+    const scaledWidth = Math.round(bgMeta.width * scaleFactor);
+    const scaledHeight = Math.round(bgMeta.height * scaleFactor);
 
-    const left = Math.round((LAYOUT_WIDTH - userWidth) / 2);
+    const scaledUser = await sharp(bgRemovedBuffer)
+      .resize(scaledWidth, scaledHeight, { fit: "contain" })
+      .toBuffer();
 
-    // ⬇️ Vertical offset — move slightly lower than center (adjustable)
-    // 80–100 px gives that “poster-style” framing effect
-    const verticalOffset = 100;
-    const top = Math.round((LAYOUT_HEIGHT - userHeight) / 2 + verticalOffset);
+    // Center horizontally
+    const left = Math.round((LAYOUT_WIDTH - scaledWidth) / 2);
+
+    // Move user slightly upward
+    const top = Math.round((LAYOUT_HEIGHT - scaledHeight) / 2) - 80;
 
     console.log(
-      `🧮 Positioning user image: left=${left}, top=${top}, offset=${verticalOffset}`
+      `🧮 User placement: left=${left}, top=${top}, scale=${scaleFactor}`
     );
 
-    // === Step 6: Composite (Layout → User → Layer) ===
+    // === Step 6: Composite final image ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
-        { input: bgRemovedBuffer, left, top, blend: "over" },
+        { input: scaledUser, left, top, blend: "over" },
         { input: layerBuffer, blend: "over" },
       ])
       .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
-    console.log("✅ Final image composed successfully!");
+    console.log("✅ Composition complete with perfect alignment");
 
     res.json({
       success: true,
-      message: "Perfectly composed final image generated",
+      message: "Final composed image generated successfully",
       finalImage: finalBase64,
-      info: {
-        layoutSize: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
-        userSize: { width: userWidth, height: userHeight },
-        offset: { top, left },
-      },
     });
   } catch (error) {
-    console.error("❌ Unified processing error:", error);
+    console.error("❌ Processing error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to process and compose image",
+      message: error.message || "Failed to compose image",
     });
   }
 });
+
 
 
 
