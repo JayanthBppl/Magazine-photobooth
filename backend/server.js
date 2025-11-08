@@ -193,10 +193,12 @@ app.post("/compose-final", async (req, res) => {
       });
     }
 
+    // --- Base Directories ---
     const baseDir = path.join(__dirname, "assets");
     const outputDir = path.join(__dirname, "final-images");
     await fs.promises.mkdir(outputDir, { recursive: true });
 
+    // --- Layout Paths ---
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
@@ -210,20 +212,23 @@ app.post("/compose-final", async (req, res) => {
 
     console.log(`🧩 Composing final image using layout: ${layoutId}`);
 
+    // --- Load All Files ---
     const [layoutBuffer, layerBuffer] = await Promise.all([
       fs.promises.readFile(layoutPath),
       fs.promises.readFile(layerPath),
     ]);
 
+    // Convert user base64 → Buffer
     const userBuffer = Buffer.from(
       userImage.replace(/^data:image\/\w+;base64,/, ""),
       "base64"
     );
 
+    // Use frontend capture dimensions (default 720x1280)
     const WIDTH = frameWidth || 720;
     const HEIGHT = frameHeight || 1280;
 
-    // Resize layout and layer to match the base dimensions
+    // --- Step 1: Resize layout & layer exactly to frame size ---
     const layoutResized = await sharp(layoutBuffer)
       .resize(WIDTH, HEIGHT)
       .toBuffer();
@@ -232,54 +237,48 @@ app.post("/compose-final", async (req, res) => {
       .resize(WIDTH, HEIGHT)
       .toBuffer();
 
-    // --- Preserve user image aspect ratio ---
-    const resizedUser = await sharp(userBuffer)
+    // --- Step 2: Ensure user image is same size (no scaling, just crop/pad) ---
+    const processedUser = await sharp(userBuffer)
       .resize({
         width: WIDTH,
         height: HEIGHT,
-        fit: "contain", // maintain proportions
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
+        fit: "fill", // keep full frame, no aspect adjustments
       })
       .toBuffer();
 
-    // Get user image metadata (actual resized dimensions)
-    const userMeta = await sharp(resizedUser).metadata();
-    const userWidth = userMeta.width;
-    const userHeight = userMeta.height;
-
-    // Center the user image in the layout (no stretch)
-    const left = Math.floor((WIDTH - userWidth) / 2);
-    const top = Math.floor((HEIGHT - userHeight) / 2);
-
-    // Composite: layout → user → overlay
+    // --- Step 3: Composite all layers in correct order ---
     const composedImage = await sharp(layoutResized)
       .composite([
-        { input: resizedUser, top, left, blend: "over" },
-        { input: layerResized, blend: "over" },
+        { input: processedUser, top: 0, left: 0, blend: "over" }, // exact overlay
+        { input: layerResized, top: 0, left: 0, blend: "over" }, // overlay graphics
       ])
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const outputFilename = `final_${layoutId}_${Date.now()}.jpg`;
-    const outputPath = path.join(outputDir, outputFilename);
-    await fs.promises.writeFile(outputPath, composedImage);
+    // --- Step 4: Save locally & respond ---
+    const filename = `final_${layoutId}_${Date.now()}.jpg`;
+    const filepath = path.join(outputDir, filename);
+    await fs.promises.writeFile(filepath, composedImage);
+
+    console.log(`✅ Final composed image saved: ${filename}`);
 
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
 
     res.json({
       success: true,
-      message: "Final portrait composed successfully",
+      message: "Image composed successfully",
       finalImageData: finalBase64,
-      localPath: outputPath,
+      localPath: filepath,
     });
   } catch (err) {
-    console.error("❌ Composition error:", err);
+    console.error("❌ Compose error:", err);
     res.status(500).json({
       success: false,
-      message: err.message || "Failed to compose final image",
+      message: err.message || "Failed to compose image",
     });
   }
 });
+
 
 
 
