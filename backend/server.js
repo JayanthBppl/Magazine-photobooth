@@ -150,18 +150,14 @@ app.post("/process-image", async (req, res) => {
 
     console.log(`🧩 Processing and composing image for layout: ${layoutId}`);
 
-    // === Step 1: Decode base64 camera image ===
+    // === Step 1: Decode base64 image ===
     let base64Data = imageData;
     if (base64Data.startsWith("data:image")) {
       base64Data = base64Data.split(",")[1];
     }
-
     const inputBuffer = Buffer.from(base64Data, "base64");
-    if (!inputBuffer || inputBuffer.length < 1000) {
-      throw new Error("Invalid or empty camera image buffer");
-    }
 
-    // === Step 2: Remove background via Remove.bg ===
+    // === Step 2: Remove background ===
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
@@ -176,12 +172,10 @@ app.post("/process-image", async (req, res) => {
     });
 
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
-    const bgRemovedBase64 = `data:image/png;base64,${bgRemovedBuffer.toString("base64")}`;
-
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
     console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
 
-    // === Step 3: Compose with layout and overlay ===
+    // === Step 3: Load layout and overlay ===
     const baseDir = path.join(__dirname, "assets");
     const outputDir = path.join(__dirname, "final-images");
     await fs.promises.mkdir(outputDir, { recursive: true });
@@ -205,21 +199,36 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
     ]);
 
-    const normalizedUserBuffer = await sharp(bgRemovedBuffer)
-      .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
-      .ensureAlpha()
+    // === Step 4: Resize bgRemoved proportionally & anchor toward bottom ===
+    const resizedUserBuffer = await sharp(bgRemovedBuffer)
+      .resize({
+        width: Math.round(LAYOUT_WIDTH * 0.8), // narrower (80% width)
+        height: Math.round(LAYOUT_HEIGHT * 0.8), // lower height scale
+        fit: "inside", // maintain aspect ratio
+        withoutEnlargement: true,
+      })
       .toBuffer();
 
-    console.log("🧩 Composing final image...");
+    const resizedMeta = await sharp(resizedUserBuffer).metadata();
 
+    // Compute centered X and Y — anchor slightly toward bottom (center-ish)
+    const left = Math.round((LAYOUT_WIDTH - resizedMeta.width) / 2);
+    const top = Math.round((LAYOUT_HEIGHT / 2) - resizedMeta.height / 2 + (LAYOUT_HEIGHT * 0.15)); // push down ~15%
+
+    console.log(
+      `🧮 Positioning user image at left=${left}, top=${top}, size=${resizedMeta.width}x${resizedMeta.height}`
+    );
+
+    // === Step 5: Compose final ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
-        { input: normalizedUserBuffer, blend: "over" },
+        { input: resizedUserBuffer, left, top, blend: "over" },
         { input: layerBuffer, blend: "over" },
       ])
       .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
+    // === Step 6: Save Output ===
     const outputFilename = `final_${layoutId}_${Date.now()}.jpg`;
     const outputPath = path.join(outputDir, outputFilename);
     await fs.promises.writeFile(outputPath, composedImage);
@@ -230,11 +239,12 @@ app.post("/process-image", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Final composed image generated successfully",
+      message: "Final composed image generated successfully (bottom-centered)",
       finalImage: finalBase64,
       info: {
         layout: { width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT },
         bgRemoved: { width: bgMeta.width, height: bgMeta.height },
+        resized: { width: resizedMeta.width, height: resizedMeta.height, left, top },
         outputPath,
       },
     });
@@ -246,6 +256,8 @@ app.post("/process-image", async (req, res) => {
     });
   }
 });
+
+
 
 
 
