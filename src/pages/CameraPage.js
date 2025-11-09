@@ -20,7 +20,8 @@ const CameraPage = () => {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [hasStartedCamera, setHasStartedCamera] = useState(false);
 
-  const BASE_URL = "http://localhost:5000";
+  // const BASE_URL = "http://localhost:5000";
+  const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
   // 💡 For iPad optimized preview

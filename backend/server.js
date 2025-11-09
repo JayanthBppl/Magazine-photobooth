@@ -189,13 +189,12 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
     ]);
 
-    // === Smart scaling logic ===
-    const maxUserWidth = LAYOUT_WIDTH * 0.95;  // within safe bounds
+    // === Smart scaling logic (Make user larger) ===
+    const maxUserWidth = LAYOUT_WIDTH * 0.95;
     const maxUserHeight = LAYOUT_HEIGHT * 0.95;
 
-    // maintain aspect ratio
     const aspectRatio = bgMeta.width / bgMeta.height;
-    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
+    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7); // bigger
     let targetHeight = targetWidth / aspectRatio;
 
     if (targetHeight > maxUserHeight) {
@@ -209,37 +208,61 @@ app.post("/process-image", async (req, res) => {
 
     // === Positioning logic ===
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35); // lift user slightly upward
+    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35);
 
     console.log(
       `🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`
     );
 
-    // === Composite safely ===
+    // === Composite final image ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
         { input: layerBuffer, left: 0, top: 0, blend: "over" },
       ])
-      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
+      .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
     console.log("✅ Final composition successful");
 
-    res.json({
-      success: true,
-      finalImage: finalBase64,
-    });
+    // === Upload final image to Cloudinary ===
+    const uploadStream = cloudinary.v2.uploader.upload_stream(
+      {
+        folder: "myntra_photobooth_final",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          console.error("❌ Cloudinary upload failed:", error);
+          return res.status(500).json({
+            success: false,
+            message: "Cloudinary upload failed",
+          });
+        }
+
+        console.log("☁️ Uploaded to Cloudinary:", result.secure_url);
+
+        res.json({
+          success: true,
+          message: "Final image composed and uploaded successfully",
+          cloudinaryUrl: result.secure_url,
+          publicId: result.public_id,
+        });
+      }
+    );
+
+    // Pipe image buffer to Cloudinary upload stream
+    const bufferStream = new stream.PassThrough();
+    bufferStream.end(composedImage);
+    bufferStream.pipe(uploadStream);
   } catch (error) {
     console.error("❌ Processing error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to compose image",
+      message: error.message || "Failed to compose or upload image",
     });
   }
 });
-
 
 
 
