@@ -4,7 +4,7 @@ import { AppContext } from "../context/AppContext";
 import "../css/UserDetails.css";
 import "../css/LayoutSelection.css";
 import myntraLogo from "../assets/logos/myntra-logo.png";
-import myntraLogo2 from "../assets/logos/Logo-1-removebg-preview.png"
+import myntraLogo2 from "../assets/logos/experience-express.png";
 
 function UserAndLayoutPage() {
   const { setUser, setLayout } = useContext(AppContext);
