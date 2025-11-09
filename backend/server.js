@@ -148,16 +148,16 @@ app.post("/process-image", async (req, res) => {
       });
     }
 
-    console.log(`🧩 Processing and composing image for layout: ${layoutId}`);
+    console.log(`🧩 Processing layout: ${layoutId}`);
 
-    // === Step 1: Decode base64 ===
+    // === Decode base64 ===
     let base64Data = imageData;
     if (base64Data.startsWith("data:image")) {
       base64Data = base64Data.split(",")[1];
     }
     const inputBuffer = Buffer.from(base64Data, "base64");
 
-    // === Step 2: Remove background ===
+    // === Remove background ===
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
@@ -175,62 +175,60 @@ app.post("/process-image", async (req, res) => {
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
     console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
 
-    // === Step 3: Layout setup ===
+    // === Layout setup ===
     const baseDir = path.join(__dirname, "assets");
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
 
-    if (!fs.existsSync(layoutPath) || !fs.existsSync(layerPath)) {
-      return res.status(404).json({
-        success: false,
-        message: `Layout or layer not found for ${layoutId}`,
-      });
-    }
-
-    // === Step 4: Output layout dimensions ===
-    const LAYOUT_WIDTH = 1200;
-    const LAYOUT_HEIGHT = 1600;
+    const LAYOUT_WIDTH = 900;
+    const LAYOUT_HEIGHT = 1440;
 
     const [layoutBuffer, layerBuffer] = await Promise.all([
-      sharp(layoutPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
-      sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT).toBuffer(),
+      sharp(layoutPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
+      sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
     ]);
 
-    // === Step 5: Scale and Position User ===
-    const scaleFactor = 1.25; // make user slightly larger
-    const scaledWidth = Math.round(bgMeta.width * scaleFactor);
-    const scaledHeight = Math.round(bgMeta.height * scaleFactor);
+    // === Smart scaling logic ===
+    const maxUserWidth = LAYOUT_WIDTH * 0.95;  // within safe bounds
+    const maxUserHeight = LAYOUT_HEIGHT * 0.95;
+
+    // maintain aspect ratio
+    const aspectRatio = bgMeta.width / bgMeta.height;
+    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
+    let targetHeight = targetWidth / aspectRatio;
+
+    if (targetHeight > maxUserHeight) {
+      targetHeight = maxUserHeight;
+      targetWidth = targetHeight * aspectRatio;
+    }
 
     const scaledUser = await sharp(bgRemovedBuffer)
-      .resize(scaledWidth, scaledHeight, { fit: "contain" })
+      .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
       .toBuffer();
 
-    // Center horizontally
-    const left = Math.round((LAYOUT_WIDTH - scaledWidth) / 2);
-
-    // Move user slightly upward
-    const top = Math.round((LAYOUT_HEIGHT - scaledHeight) / 2) - 80;
+    // === Positioning logic ===
+    const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
+    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35); // lift user slightly upward
 
     console.log(
-      `🧮 User placement: left=${left}, top=${top}, scale=${scaleFactor}`
+      `🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`
     );
 
-    // === Step 6: Composite final image ===
+    // === Composite safely ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
-        { input: layerBuffer, blend: "over" },
+        { input: layerBuffer, left: 0, top: 0, blend: "over" },
       ])
-      .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
+      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
     const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
-    console.log("✅ Composition complete with perfect alignment");
+    console.log("✅ Final composition successful");
 
     res.json({
       success: true,
-      message: "Final composed image generated successfully",
       finalImage: finalBase64,
     });
   } catch (error) {
@@ -241,6 +239,12 @@ app.post("/process-image", async (req, res) => {
     });
   }
 });
+
+
+
+
+
+
 
 
 

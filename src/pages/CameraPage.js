@@ -20,14 +20,14 @@ const CameraPage = () => {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [hasStartedCamera, setHasStartedCamera] = useState(false);
 
-  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+  const BASE_URL = "http://localhost:5000";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
 
-  // 📏 Capture size optimized for iPad Air 2
-  const FRAME_WIDTH = 960;
-  const FRAME_HEIGHT = 1280;
+  // 💡 For iPad optimized preview
+  const FRAME_WIDTH = 900;
+  const FRAME_HEIGHT = 1200;
 
-  /** ✅ Detect cameras */
+  /** ✅ Detect available cameras */
   useEffect(() => {
     const detectCameras = async () => {
       try {
@@ -39,9 +39,7 @@ const CameraPage = () => {
         const frontCam = videoInputs.find((d) =>
           d.label.toLowerCase().includes("front")
         );
-        setSelectedDeviceId(
-          frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null
-        );
+        setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null);
       } catch (err) {
         console.error("Camera detection error:", err);
       }
@@ -49,14 +47,14 @@ const CameraPage = () => {
     detectCameras();
   }, []);
 
-  /** ✅ Start camera (default or selected) */
+  /** ✅ Start camera */
   const startCamera = async () => {
     try {
       const constraints = {
         video: {
           facingMode: { ideal: "user" },
-          width: { ideal: FRAME_WIDTH, max: FRAME_WIDTH },
-          height: { ideal: FRAME_HEIGHT, max: FRAME_HEIGHT },
+          width: { ideal: FRAME_WIDTH },
+          height: { ideal: FRAME_HEIGHT },
         },
         audio: false,
       };
@@ -77,15 +75,13 @@ const CameraPage = () => {
       if (err.name === "NotAllowedError") {
         setPermissionDenied(true);
         alert("Please allow camera access in your browser settings.");
-      } else if (err.name === "NotFoundError") {
-        alert("No camera detected on your device.");
       } else {
-        alert("Unable to access camera. Please enable permissions.");
+        alert("Unable to access camera. Please enable camera access.");
       }
     }
   };
 
-  /** 📸 Capture + Remove BG + Compose (Single API) */
+  /** 📸 Capture + Remove BG + Compose in single API */
   const captureAndProcessImage = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -100,8 +96,9 @@ const CameraPage = () => {
     canvas.width = FRAME_WIDTH;
     canvas.height = FRAME_HEIGHT;
 
+    // Mirror horizontally
     ctx.save();
-    ctx.scale(-1, 1); // mirror selfie
+    ctx.scale(-1, 1);
     ctx.drawImage(video, -FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
     ctx.restore();
 
@@ -111,24 +108,17 @@ const CameraPage = () => {
       const response = await fetch(`${BASE_URL}/process-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageData: capturedData,
-          layoutId,
-        }),
+        body: JSON.stringify({ imageData: capturedData, layoutId }),
       });
 
       const data = await response.json();
       if (!data.success) throw new Error("Image processing failed!");
 
-      console.log("✅ Final composed image received");
       setProcessedImage(data.finalImage);
       setLayout(layoutId);
 
       navigate("/final", {
-        state: {
-          layoutId,
-          finalImage: data.finalImage,
-        },
+        state: { layoutId, finalImage: data.finalImage },
       });
     } catch (err) {
       console.error("Error processing image:", err);
@@ -156,14 +146,13 @@ const CameraPage = () => {
 
   /** 🔁 Switch camera */
   const handleCameraChange = (e) => {
-    const newDeviceId = e.target.value;
-    setSelectedDeviceId(newDeviceId);
+    setSelectedDeviceId(e.target.value);
     setIsCameraReady(false);
     setHasStartedCamera(false);
     startCamera();
   };
 
-  /** 🚀 Auto-start on mount */
+  /** 🚀 Auto-start camera */
   useEffect(() => {
     const autoStart = async () => {
       try {
@@ -183,11 +172,8 @@ const CameraPage = () => {
 
         {devices.length > 1 && (
           <div className="camera-select-box">
-            <label htmlFor="cameraSelect" className="camera-select-label">
-              Switch Camera:
-            </label>
+            <label>Switch Camera:</label>
             <select
-              id="cameraSelect"
               value={selectedDeviceId || ""}
               onChange={handleCameraChange}
               className="camera-dropdown"
@@ -202,35 +188,12 @@ const CameraPage = () => {
         )}
 
         {!hasStartedCamera && (
-          <button
-            className="start-camera-btn"
-            onClick={startCamera}
-            style={{
-              background: "linear-gradient(90deg, #ec008c, #f7931e)",
-              color: "#fff",
-              border: "none",
-              padding: "10px 24px",
-              borderRadius: "8px",
-              marginBottom: "20px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button className="start-camera-btn" onClick={startCamera}>
             Start Camera
           </button>
         )}
 
-        <div
-          className="camera-frame"
-          style={{
-            width: `${FRAME_WIDTH / 2}px`,
-            height: `${FRAME_HEIGHT / 2}px`,
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          }}
-        >
+        <div className="camera-frame">
           <video
             ref={videoRef}
             autoPlay
@@ -250,18 +213,10 @@ const CameraPage = () => {
           onClick={startCountdown}
           disabled={!isCameraReady || processing || countdown > 0}
         >
-          {processing
-            ? "Processing..."
-            : countdown > 0
-            ? "Get Ready..."
-            : "Capture Photo"}
+          {processing ? "Processing..." : countdown > 0 ? "Get Ready..." : "Capture Photo"}
         </button>
 
-        {permissionDenied && (
-          <p className="text-warning mt-3">
-            Please allow camera access in your browser settings.
-          </p>
-        )}
+        {permissionDenied && <p>Please allow camera access.</p>}
       </div>
     </div>
   );
