@@ -140,8 +140,12 @@ app.post("/retake", async (req, res) => {
 app.post("/process-image", async (req, res) => {
   try {
     const { imageData, layoutId } = req.body;
+
     if (!imageData || !layoutId) {
-      return res.status(400).json({ success: false, message: "Missing imageData or layoutId" });
+      return res.status(400).json({
+        success: false,
+        message: "Missing imageData or layoutId",
+      });
     }
 
     console.log(`🧩 Processing layout: ${layoutId}`);
@@ -160,9 +164,11 @@ app.post("/process-image", async (req, res) => {
 
     console.log("🎨 Removing background...");
     const bgResponse = await axios.post("https://api.remove.bg/v1.0/removebg", formData, {
-      headers: { ...formData.getHeaders(), "X-Api-Key": process.env.REMOVEBG_KEY },
+      headers: {
+        ...formData.getHeaders(),
+        "X-Api-Key": process.env.REMOVEBG_KEY,
+      },
       responseType: "arraybuffer",
-      timeout: 20000,
     });
 
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
@@ -183,12 +189,13 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
     ]);
 
-    // === Scale user ===
-    const aspectRatio = bgMeta.width / bgMeta.height;
-    const maxUserWidth = LAYOUT_WIDTH * 0.95;
+    // === Smart scaling logic ===
+    const maxUserWidth = LAYOUT_WIDTH * 0.95;  // within safe bounds
     const maxUserHeight = LAYOUT_HEIGHT * 0.95;
 
-    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.5);
+    // maintain aspect ratio
+    const aspectRatio = bgMeta.width / bgMeta.height;
+    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
     let targetHeight = targetWidth / aspectRatio;
 
     if (targetHeight > maxUserHeight) {
@@ -200,56 +207,39 @@ app.post("/process-image", async (req, res) => {
       .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
       .toBuffer();
 
+    // === Positioning logic ===
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35);
+    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35); // lift user slightly upward
 
-    console.log(`🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`);
+    console.log(
+      `🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`
+    );
 
-    // === Composite ===
+    // === Composite safely ===
     const composedImage = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
         { input: layerBuffer, left: 0, top: 0, blend: "over" },
       ])
-      .jpeg({ quality: 95 })
+      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
+    const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
     console.log("✅ Final composition successful");
 
-    // === Upload to Cloudinary ===
-    console.log("☁️ Uploading final image to Cloudinary...");
-    const uploadResponse = await new Promise((resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            folder: "photo-booth-finals",
-            resource_type: "image",
-            timeout: 60000,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        )
-        .end(composedImage);
-    });
-
-    console.log("✅ Cloudinary Upload Successful:", uploadResponse.secure_url);
-
-    // === Send Final Response ===
-    return res.status(200).json({
+    res.json({
       success: true,
-      imageUrl: uploadResponse.secure_url,
-      publicId: uploadResponse.public_id,
+      finalImage: finalBase64,
     });
-
   } catch (error) {
     console.error("❌ Processing error:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, message: error.message || "Image processing failed" });
-    }
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to compose image",
+    });
   }
 });
+
 
 
 
