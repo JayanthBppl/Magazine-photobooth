@@ -189,12 +189,12 @@ app.post("/process-image", async (req, res) => {
       sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
     ]);
 
-    // === Smart scaling logic (Make user larger) ===
+    // === Smart scaling logic (Make user slightly bigger) ===
     const maxUserWidth = LAYOUT_WIDTH * 0.95;
     const maxUserHeight = LAYOUT_HEIGHT * 0.95;
 
     const aspectRatio = bgMeta.width / bgMeta.height;
-    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7); // bigger
+    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
     let targetHeight = targetWidth / aspectRatio;
 
     if (targetHeight > maxUserHeight) {
@@ -206,7 +206,7 @@ app.post("/process-image", async (req, res) => {
       .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
       .toBuffer();
 
-    // === Positioning logic ===
+    // === Position user properly ===
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
     const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35);
 
@@ -225,10 +225,10 @@ app.post("/process-image", async (req, res) => {
 
     console.log("✅ Final composition successful");
 
-    // === Upload final image to Cloudinary ===
-    const uploadStream = cloudinary.v2.uploader.upload_stream(
+    // === Upload to your existing Cloudinary folder ===
+    const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: "myntra_photobooth_final",
+        folder: "photo-booth-finals", // ✅ Your existing folder name
         resource_type: "image",
       },
       (error, result) => {
@@ -241,7 +241,6 @@ app.post("/process-image", async (req, res) => {
         }
 
         console.log("☁️ Uploaded to Cloudinary:", result.secure_url);
-
         res.json({
           success: true,
           message: "Final image composed and uploaded successfully",
@@ -251,7 +250,7 @@ app.post("/process-image", async (req, res) => {
       }
     );
 
-    // Pipe image buffer to Cloudinary upload stream
+    // Stream image buffer to Cloudinary upload stream
     const bufferStream = new stream.PassThrough();
     bufferStream.end(composedImage);
     bufferStream.pipe(uploadStream);

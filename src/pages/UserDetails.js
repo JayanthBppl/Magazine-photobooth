@@ -108,7 +108,7 @@ function UserAndLayoutPage() {
     <div className="container py-5">
       {/* ======= Step 1: User Details ======= */}
       {!formSubmitted && (
-        <div className="text-center user-details-section">
+        <div className="text-center user-details-section" style={{ minHeight: "100vh" }}>
           <img
             src={myntraLogo2}
             alt="Myntra Logo"
