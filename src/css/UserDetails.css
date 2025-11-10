@@ -12,7 +12,9 @@ html,
 body {
   font-family: "AllerDisplay", "Poppins", sans-serif;
   color: #fff;
-  background: radial-gradient(circle at top left, #ec008c 0%, #f7931e 70%, #0d0d0d 100%);
+  /* 🎨 Light Pink Gradient Background */
+  background: linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%);
+
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-size: cover;
@@ -20,6 +22,9 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* === Main Container === */
@@ -30,10 +35,11 @@ body {
   align-items: center;
   text-align: center;
   height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   padding: 0;
-  margin: 0;
+  overflow: hidden;
 }
 
 /* === Myntra Logo === */
@@ -63,13 +69,12 @@ body {
 
 /* === User Form Card === */
 .user-form-card {
-  background: rgba(25, 25, 25, 0.85);
+  background: rgba(25, 25, 25, 0.88);
   border-radius: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 30px rgba(236, 0, 140, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 40px rgba(236, 0, 140, 0.35);
   animation: fadeIn 0.8s ease-in;
-  width: 95%;
-  max-width: 480px;
+  width: 480px;
   padding: 2rem 2.5rem;
   margin-top: 0.8rem;
 }
@@ -90,7 +95,7 @@ body {
 }
 
 .user-form-card .form-control {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 12px;
@@ -107,13 +112,14 @@ body {
 .user-form-card .form-control:focus {
   outline: none;
   border-color: #ec008c;
-  box-shadow: 0 0 10px #ec008c;
+  box-shadow: 0 0 10px #eb75c0;
 }
 
 /* === Button === */
 .btn-primary,
 .btn {
-  background: linear-gradient(90deg, #ec008c, #f7931e);
+  background: linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%);
+
   border: none;
   border-radius: 40px;
   padding: 14px;
@@ -161,50 +167,57 @@ body {
   }
 }
 
-/* === Tablet Optimized (iPad Look) === */
+/* === Tablet & iPad Optimization === */
 @media (min-width: 768px) and (max-width: 1024px) {
+  .container {
+    justify-content: center;
+    align-items: center;
+  }
+
   .myntra-main-logo {
-    width: 260px;
+    width: 300px;
   }
 
   .page-title {
-    font-size: 2.4rem;
+    font-size: 2.3rem;
   }
 
   .user-form-card {
-    max-width: 520px;
+    max-width: 480px;
     padding: 2.3rem 2.8rem;
-  }
-
-  .user-form-card .form-control {
-    font-size: 1.1rem;
-    padding: 14px 18px;
-  }
-
-  .btn-primary,
-  .btn {
-    font-size: 1.25rem;
   }
 }
 
 /* === iPad Portrait Specific === */
 @media (max-width: 820px) {
-  .container {
-    justify-content: center;
-  }
-
   .myntra-main-logo {
-    width: 250px;
+    width: 230px;
   }
 
   .page-title {
-    font-size: 2.3rem;
+    font-size: 2.2rem;
     margin-bottom: 1rem;
   }
 
   .user-form-card {
-    width: 80%;
-    max-width: 500px;
-    padding: 2.2rem;
+    width: 85%;
+    max-width: 460px;
+    padding: 2rem;
+  }
+}
+
+/* === Mobile Devices === */
+@media (max-width: 576px) {
+  .user-form-card {
+    width: 90%;
+    padding: 1.8rem;
+  }
+
+  .page-title {
+    font-size: 1.8rem;
+  }
+
+  .myntra-main-logo {
+    width: 200px;
   }
 }

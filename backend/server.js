@@ -169,6 +169,7 @@ app.post("/process-image", async (req, res) => {
         "X-Api-Key": process.env.REMOVEBG_KEY,
       },
       responseType: "arraybuffer",
+      timeout: 60000,
     });
 
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
@@ -190,10 +191,9 @@ app.post("/process-image", async (req, res) => {
     ]);
 
     // === Smart scaling logic ===
-    const maxUserWidth = LAYOUT_WIDTH * 0.95;  // within safe bounds
+    const maxUserWidth = LAYOUT_WIDTH * 0.95;
     const maxUserHeight = LAYOUT_HEIGHT * 0.95;
 
-    // maintain aspect ratio
     const aspectRatio = bgMeta.width / bgMeta.height;
     let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
     let targetHeight = targetWidth / aspectRatio;
@@ -209,64 +209,66 @@ app.post("/process-image", async (req, res) => {
 
     // === Positioning logic ===
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35); // lift user slightly upward
+    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35);
 
     console.log(
       `🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`
     );
 
-    // === Composite safely ===
-    const composedImage = await sharp(layoutBuffer)
+    // === Composite final image ===
+    const composedImageBuffer = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
         { input: layerBuffer, left: 0, top: 0, blend: "over" },
       ])
-      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
+      .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const finalBase64 = `data:image/jpeg;base64,${composedImage.toString("base64")}`;
     console.log("✅ Final composition successful");
 
+    // === Generate Base64 for Instant Preview ===
+    const finalBase64 = `data:image/jpeg;base64,${composedImageBuffer.toString("base64")}`;
+
+    // === Upload to Cloudinary (Async Stream) ===
+    console.log("☁️ Uploading final image to Cloudinary...");
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "photo-booth-finals",
+          public_id: `${layoutId}_${Date.now()}`,
+          resource_type: "image",
+          format: "jpg",
+          overwrite: true,
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+
+      require("streamifier").createReadStream(composedImageBuffer).pipe(uploadStream);
+    });
+
+    console.log("✅ Uploaded to Cloudinary:", uploadResult.secure_url);
+
+    // === Respond with Both Base64 & Cloudinary URL ===
     res.json({
       success: true,
-      finalImage: finalBase64,
+      message: "Image processed successfully",
+      finalImage: finalBase64, // for immediate display
+      cloudinaryUrl: uploadResult.secure_url, // for permanent storage
+      publicId: uploadResult.public_id,
     });
+
   } catch (error) {
     console.error("❌ Processing error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to compose image",
+      message: error.message || "Failed to compose or upload image",
     });
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

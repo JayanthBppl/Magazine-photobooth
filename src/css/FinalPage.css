@@ -1,100 +1,248 @@
-/* FinalPage.css - responsive final portrait styling */
-
-.final-page-root {
-  min-height: 100vh;
-  padding: 40px 20px;
-  background: #1f2628; /* dark neutral to match app */
-  color: #fff;
+/* ===== Final Page Container ===== */
+.final-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
-  box-sizing: border-box;
-  font-family: "AllerDisplay", "Poppins", sans-serif;
+  height: 100vh;
+  width: 100vw;
+
+  /* 🎨 Myntra Experience Express Gradient */
+  background: linear-gradient(135deg, #0d3cb1 0%, #551698 50%, #9c1867 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
+
+  color: #f9f9f9;
+  text-align: center;
+  overflow: hidden;
+  padding: 1rem 0;
 }
 
-/* Title */
+/* ===== Title ===== */
 .final-title {
-  font-size: 2.1rem;
-  margin: 0;
-  letter-spacing: 0.6px;
-  text-shadow: 0 4px 14px rgba(0,0,0,0.6);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  letter-spacing: 1px;
+  margin-top: 0.8rem;
+  margin-bottom: 1rem;
+  z-index: 10;
+  animation: slideDown 1s ease;
 }
 
-/* Loading / error */
-.final-loading {
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ===== Content Wrapper ===== */
+.final-content {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
-}
-.final-error {
-  color: #ff6b6b;
-  font-weight: 600;
+  flex-grow: 1;
+  gap: 1rem;
+  margin-top: -0.5rem;
+  max-height: 78vh;
 }
 
-/* Card wrapper centers and ensures card size adapts */
-.final-card-wrapper {
+/* ===== Portrait Card ===== */
+.final-card {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 12px;
+  margin: 20px;
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+  animation: popIn 0.8s ease-out;
   display: flex;
   justify-content: center;
-  width: 100%;
+  align-items: center;
+
+  /* 🔹 Responsive Sizing */
+  width: clamp(220px, 35vw, 420px);
+  height: auto;
 }
 
-/* The visual frame for the portrait */
-.final-card {
-  /* use min/max so layout doesn't become enormous on wide screens */
-  width: min(420px, 86vw);          /* card width (will grow on tablet/desktop up to 420px) */
-  max-width: 520px;                /* prevent extremely large on very large screens */
-  aspect-ratio: 9 / 16;            /* ensure correct magazine portrait aspect — keeps the full layout visible */
-  border-radius: 14px;
-  overflow: hidden;
-  display: block;
-  box-shadow: 0 18px 40px rgba(3,10,18,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
-  background: #000; /* fallback while image loads */
-  -webkit-backface-visibility: hidden;
+@keyframes popIn {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-/* Final image: fill card horizontally, keep entire image visible (no cropping) */
+/* ===== Final Image ===== */
 .final-image {
-  width: 100%;       /* fills card width exactly */
-  height: 100%;
-  object-fit: contain; /* contain ensures entire composed image is visible (no cropped sides) */
-  display: block;    /* removes default inline image gap */
-  user-select: none;
-  -webkit-user-drag: none;
+  border-radius: 12px;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  box-shadow:
+    0 0 25px rgba(19, 19, 19, 0.5),
+    0 0 50px rgba(122, 0, 255, 0.4),
+    0 0 70px rgba(49, 6, 32, 0.4);
 }
 
-/* Controls area */
-.final-controls {
-  margin-top: 8px;
+/* ===== Button Section ===== */
+.btn-box {
+  margin-top: 1.8rem;
+}
+
+/* ===== Dual Buttons Layout ===== */
+.dual-buttons {
   display: flex;
-  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+/* ===== Primary (Generate QR) Button ===== */
+.home-btn {
+  background: linear-gradient(135deg, #0047ff, #7a00ff, #ff0099);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  border-radius: 50px;
+  padding: 0.7rem 2.4rem;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.25);
+  transition: all 0.3s ease;
+}
+
+.home-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.5);
+}
+
+/* ===== Secondary (Home) Button ===== */
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.05rem;
+  border-radius: 50px;
+  padding: 0.7rem 2.4rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.secondary-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+/* ===== QR Modal Overlay ===== */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  animation: fadeInQR 0.3s ease-in-out;
+}
+
+.qr-box {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 0 25px rgba(255, 0, 153, 0.4);
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-/* Responsive tweaks */
-/* On tablets — allow larger card so image appears more expansive */
-@media (min-width: 900px) and (max-width: 1366px) {
-  .final-card {
-    width: 480px;
-    aspect-ratio: 9 / 16;
+.qr-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+}
+
+/* ===== Back Button in QR Modal ===== */
+.close-btn {
+  margin-top: 1.5rem;
+  background: linear-gradient(135deg, #0047ff 0%, #7a00ff 50%, #ff0099 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  border-radius: 40px;
+  padding: 0.6rem 1.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.close-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes fadeInQR {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-/* Very large screens — afford a wider card */
-@media (min-width: 1366px) {
+/* ===== Responsive Adjustments ===== */
+@media (max-width: 1024px) {
   .final-card {
-    width: 520px;
-  }
-}
-
-/* Tight mobile screens — reduce card for comfortable fit */
-@media (max-width: 420px) {
-  .final-card {
-    width: calc(92vw);
-    border-radius: 10px;
+    width: clamp(260px, 55vw, 460px);
   }
   .final-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dual-buttons {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .home-btn,
+  .secondary-btn {
+    width: 80%;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .final-title {
     font-size: 1.4rem;
+  }
+
+  .final-card {
+    width: 85vw;
+  }
+
+  .final-image {
+    max-height: 55vh;
   }
 }

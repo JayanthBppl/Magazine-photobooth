@@ -1,60 +1,74 @@
-import React from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { QRCodeCanvas } from "qrcode.react";
+import "../css/FinalPage.css";
 
-function FinalPage() {
-  const navigate = useNavigate();
+const FinalPage = () => {
   const location = useLocation();
-  const { finalImage, layoutId } = location.state || {};
+  const navigate = useNavigate();
+  const { finalImage, cloudinaryUrl } = location.state || {};
 
-  if (!finalImage || !layoutId) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100 bg-dark text-white">
-        <h4>Missing data. Please retake your photo.</h4>
-      </div>
-    );
-  }
+  const [showQR, setShowQR] = useState(false);
 
   return (
-    <div
-      className="container-fluid text-center py-5 bg-dark text-white d-flex flex-column align-items-center justify-content-center"
-      style={{ minHeight: "100vh" }}
-    >
-      <h3 className="mb-4 fw-semibold">Your Final Portrait</h3>
+    <div className="final-container">
+      <h2 className="final-title">✨ Your Final Portrait ✨</h2>
 
-      <div
-        style={{
-          position: "relative",
-          width: "280px",
-          height: "480px",
-          borderRadius: "12px",
-          overflow: "hidden",
-          backgroundColor: "#000",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: "24px",
-        }}
-      >
-        <img
-          src={finalImage}
-          alt="Final Portrait"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
+      <div className="final-content">
+        <div className="final-card">
+          <img
+            src={finalImage}
+            alt="Final Portrait"
+            className="final-image"
+          />
+        </div>
+
+        {/* === Buttons Section === */}
+        <div className="btn-box dual-buttons">
+          <button
+            className="home-btn"
+            onClick={() => setShowQR(true)}
+            disabled={!cloudinaryUrl}
+          >
+            Generate QR
+          </button>
+
+          <button
+            className="home-btn secondary-btn"
+            onClick={() => navigate("/")}
+          >
+            Home
+          </button>
+        </div>
       </div>
 
-      <div className="d-flex gap-3">
-        <button className="btn btn-success px-4" onClick={() => navigate("/")}>
-          Home
-        </button>
-      </div>
+      {/* ===== QR Modal Overlay ===== */}
+      {showQR && (
+        <div className="qr-overlay">
+          <div className="qr-box">
+            <h4 className="qr-title">📱 Scan to Download</h4>
+
+            {cloudinaryUrl ? (
+              <QRCodeCanvas
+                value={cloudinaryUrl}
+                size={220}
+                fgColor="#ffffff"
+                bgColor="transparent"
+                level="H"
+                includeMargin={true}
+              />
+            ) : (
+              <p>Cloudinary URL not available</p>
+            )}
+
+            <button className="close-btn" onClick={() => setShowQR(false)}>
+              Back
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default FinalPage;

@@ -2,6 +2,7 @@ import React, { useState, useRef, useContext, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import "../css/CameraPage.css";
+import LoadingGif from '../assets/loading.gif';
 
 const CameraPage = () => {
   const navigate = useNavigate();
@@ -19,12 +20,11 @@ const CameraPage = () => {
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [hasStartedCamera, setHasStartedCamera] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
-  // const BASE_URL = "http://localhost:5000";
-  const BASE_URL =  "https://magazine-photobooth-backend.onrender.com";
+  const BASE_URL = "http://localhost:5000";
+  // const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
   const layerSrc = `/layouts/${layoutId}/layer-img.png`;
-
-  // 💡 For iPad optimized preview
   const FRAME_WIDTH = 900;
   const FRAME_HEIGHT = 1200;
 
@@ -36,7 +36,6 @@ const CameraPage = () => {
         const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
         setDevices(videoInputs);
 
-        // Prefer front camera if available
         const frontCam = videoInputs.find((d) =>
           d.label.toLowerCase().includes("front")
         );
@@ -77,19 +76,23 @@ const CameraPage = () => {
         setPermissionDenied(true);
         alert("Please allow camera access in your browser settings.");
       } else {
-        alert("Unable to access camera. Please enable camera access.");
+        alert("Unable to access camera. Please enable permissions.");
       }
     }
   };
 
-  /** 📸 Capture + Remove BG + Compose in single API */
+  /** 📸 Capture + Remove BG + Compose (Single API) */
   const captureAndProcessImage = async () => {
+    if (isCapturing) return;
+    setIsCapturing(true);
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
     if (!video.videoWidth || !video.videoHeight) {
       alert("Camera not ready yet!");
+      setIsCapturing(false);
       return;
     }
 
@@ -115,17 +118,23 @@ const CameraPage = () => {
       const data = await response.json();
       if (!data.success) throw new Error("Image processing failed!");
 
+      console.log("✅ Final composed image received");
       setProcessedImage(data.finalImage);
       setLayout(layoutId);
 
       navigate("/final", {
-        state: { layoutId, finalImage: data.finalImage },
+        state: {
+          layoutId,
+          finalImage: data.finalImage,
+          cloudinaryUrl: data.cloudinaryUrl,
+        },
       });
     } catch (err) {
       console.error("Error processing image:", err);
       alert("Failed to process image. Please try again.");
     } finally {
       setProcessing(false);
+      setIsCapturing(false);
     }
   };
 
@@ -168,7 +177,19 @@ const CameraPage = () => {
 
   return (
     <div className="camera-container">
-      <div className="camera-center-box">
+      {/* Show loading GIF when processing */}
+      {processing && (
+        <div className="loading-gif-overlay">
+          <img
+            src={LoadingGif}
+            alt="Processing..."
+            className="loading-gif"
+          />
+          <p className="loading-text">Processing your photo...</p>
+        </div>
+      )}
+
+      <div className="camera-center-box" style={{ opacity: processing ? 0.2 : 1 }}>
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
         {devices.length > 1 && (
@@ -194,7 +215,7 @@ const CameraPage = () => {
           </button>
         )}
 
-        <div className="camera-frame">
+        <div className="camera-frame glowing-frame">
           <video
             ref={videoRef}
             autoPlay
