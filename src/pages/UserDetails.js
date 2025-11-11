@@ -6,16 +6,15 @@ import "../css/LayoutSelection.css";
 import myntraLogo2 from "../assets/logos/experience-express.png";
 
 function UserAndLayoutPage() {
-  const { setUser, setLayout } = useContext(AppContext);
+  const { setLayout } = useContext(AppContext);
   const navigate = useNavigate();
 
+  const [showIntro, setShowIntro] = useState(true);
   const [formData, setFormData] = useState({ name: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [showConsent, setShowConsent] = useState(false);
-  const [isAgreed, setIsAgreed] = useState(false);
 
   const layouts = [
     { id: "layout1", src: "/layouts/layout1.jpg" },
@@ -26,47 +25,6 @@ function UserAndLayoutPage() {
   const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
   // const BASE_URL = "http://localhost:5000";
 
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-
-  /** === Form Input Change === */
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  /** === Save User === */
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email) {
-      alert("Please fill in both fields");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await fetch(`${BASE_URL}/save-user`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setUser(data.user);
-        setFormSubmitted(true);
-      } else {
-        alert("Failed to save user");
-      }
-    } catch (error) {
-      console.error("Error saving user:", error);
-      alert("Something went wrong while saving your details!");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** === Preload Layout Images === */
   useEffect(() => {
     if (formSubmitted) {
       const preload = layouts.map(
@@ -82,50 +40,88 @@ function UserAndLayoutPage() {
     }
   }, [formSubmitted]);
 
-  /** === Layout Selection + Consent === */
-  const handleLayoutSelect = (layout) => {
-    setLayout(layout.id);
-    setShowConsent(true);
+  const handleIntroContinue = () => setShowIntro(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleAgree = () => {
-    if (isAgreed) {
-      setShowConsent(false);
-      navigate("/camera", {
-        state: { userId: formData._id, layoutId: layouts[activeIndex].id },
-      });
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email) {
+      alert("Please enter both name and email");
+      return;
     }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setFormSubmitted(true);
+    }, 700);
   };
 
-  /** === Swipe Navigation === */
-  const nextLayout = () => {
-    setActiveIndex((prev) => (prev + 1) % layouts.length);
-  };
+  // swipe helpers
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
-  const prevLayout = () => {
-    setActiveIndex((prev) =>
-      prev === 0 ? layouts.length - 1 : prev - 1
-    );
-  };
+  const nextLayout = () => setActiveIndex((p) => (p + 1) % layouts.length);
+  const prevLayout = () =>
+    setActiveIndex((p) => (p === 0 ? layouts.length - 1 : p - 1));
 
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchMove = (e) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
-
+  const handleTouchStart = (e) => (touchStartX.current = e.touches[0].clientX);
+  const handleTouchMove = (e) => (touchEndX.current = e.touches[0].clientX);
   const handleTouchEnd = () => {
     const distance = touchStartX.current - touchEndX.current;
-    if (distance > 60) nextLayout(); // Swipe Left
-    if (distance < -60) prevLayout(); // Swipe Right
+    if (distance > 60) nextLayout();
+    if (distance < -60) prevLayout();
   };
+
+  // After selecting layout → go to camera page with name/email/layoutId
+const handleLayoutSelect = (layout) => {
+  console.log("🎯 Sending layoutId:", layout.id);
+
+  setLayout(layout.id);
+  navigate("/camera", {
+    state: {
+      layoutId: layout.id, // ✅ exact ID of clicked image
+      name: formData.name,
+      email: formData.email,
+    },
+  });
+};
+
+
+
 
   return (
     <div className="container py-5">
-      {/* ======= STEP 1: USER DETAILS ======= */}
-      {!formSubmitted && (
+      {/* ======= Opening Message ======= */}
+      {showIntro && (
+        <div className="consent-overlay">
+          <div className="consent-box">
+            <h4>Welcome to the Myntra Experience Express!</h4>
+            <p className="consent-text">
+              Capture your moment with Myntra’s AI Photobooth! You’ll receive a
+              digital copy of your photo. These may be used for internal
+              communications or Employer Branding.
+            </p>
+            <button
+              className="btn mt-3"
+              style={{
+                background:
+                  "linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%)",
+                border: "none",
+              }}
+              onClick={handleIntroContinue}
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ======= Step 1: User Details ======= */}
+      {!formSubmitted && !showIntro && (
         <div className="text-center user-details-section">
           <img src={myntraLogo2} alt="Myntra Logo" className="myntra-main-logo" />
           <h1 className="page-title mt-3">AI PHOTOBOOTH</h1>
@@ -141,10 +137,10 @@ function UserAndLayoutPage() {
                   <label className="form-label">Name</label>
                   <input
                     type="text"
-                    className="form-control"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
+                    className="form-control"
                     placeholder="Enter your name"
                   />
                 </div>
@@ -152,10 +148,10 @@ function UserAndLayoutPage() {
                   <label className="form-label">Email</label>
                   <input
                     type="email"
-                    className="form-control"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
+                    className="form-control"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -164,12 +160,12 @@ function UserAndLayoutPage() {
                   className="btn w-100"
                   disabled={loading}
                   style={{
-                    background: "linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%)",
-
+                    background:
+                      "linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%)",
                     border: "none",
                   }}
                 >
-                  {loading ? "Saving..." : "Continue"}
+                  {loading ? "Please wait..." : "Continue"}
                 </button>
               </form>
             </div>
@@ -177,76 +173,52 @@ function UserAndLayoutPage() {
         </div>
       )}
 
-      {/* ======= STEP 2: LAYOUT SELECTION ======= */}
-      {formSubmitted && (
-        <div className="layout-selection-container text-center mt-5">
-          <h3 className="mb-4">Select Your Layout</h3>
+    
+{/* ======= Step 2: Layout Selection ======= */}
+{formSubmitted && (
+  <div className="layout-selection-container text-center mt-5">
+    <h3 className="mb-4">Select Your Layout</h3>
 
-          <div
-            className="layout-display-container"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="layout-wrapper">
-              <img
-                src={`${process.env.PUBLIC_URL}${layouts[activeIndex].src}`}
-                alt={layouts[activeIndex].id}
-                className="layout-image active"
-                onClick={() => handleLayoutSelect(layouts[activeIndex])}
-              />
-            </div>
-          </div>
+    <div className="layout-display-container">
+      <button className="nav-arrow left" onClick={prevLayout}>
+        &#8249;
+      </button>
 
-          {/* Dots indicator below layout */}
-          <div className="dots-indicator">
-            {layouts.map((_, i) => (
-              <span
-                key={i}
-                className={`dot ${i === activeIndex ? "active" : ""}`}
-                onClick={() => setActiveIndex(i)}
-              ></span>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className="layout-wrapper">
+        {layouts.map((layout, i) => (
+          <img
+            key={layout.id}
+            src={`${process.env.PUBLIC_URL}${layout.src}`}
+            alt={layout.id}
+            className={`layout-image ${
+              i === activeIndex ? "active" : "inactive"
+            }`}
+            onClick={() => handleLayoutSelect(layout)} // ✅ direct layout binding
+            style={{
+              display: i === activeIndex ? "block" : "none",
+            }}
+          />
+        ))}
+      </div>
 
-      {/* ======= CONSENT MODAL ======= */}
-      {showConsent && (
-        <div className="consent-overlay">
-          <div className="consent-box">
-            <h4>Consent & Agreement</h4>
-            <p className="consent-text">
-              By taking a photo, you agree to receive a digital copy of your image.
-              You also consent that the image may be used by Myntra for non-commercial
-              internal communications and for external Employer Branding purposes.
-            </p>
+      <button className="nav-arrow right" onClick={nextLayout}>
+        &#8250;
+      </button>
+    </div>
 
-            <div className="checkbox-area">
-              <input
-                type="checkbox"
-                id="agree"
-                checked={isAgreed}
-                onChange={(e) => setIsAgreed(e.target.checked)}
-              />
-              <label htmlFor="agree">I agree to the terms above.</label>
-            </div>
+    <div className="dots-indicator" style={{ marginTop: 20 }}>
+      {layouts.map((_, i) => (
+        <span
+          key={i}
+          className={`dot ${i === activeIndex ? "active" : ""}`}
+          onClick={() => setActiveIndex(i)}
+        />
+      ))}
+    </div>
+  </div>
+)}
 
-            <button
-              className="btn mt-3"
-              disabled={!isAgreed}
-              onClick={handleAgree}
-              style={{
-                background: "linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%)",
 
-                border: "none",
-              }}
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

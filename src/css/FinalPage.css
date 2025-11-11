@@ -2,35 +2,33 @@
 .final-container {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   height: 100vh;
   width: 100vw;
 
-  /* 🎨 Myntra Experience Express Gradient */
   background: linear-gradient(135deg, #0d3cb1 0%, #551698 50%, #9c1867 100%);
   background-repeat: no-repeat;
   background-size: cover;
 
-  color: #f9f9f9;
+  color: #ffffff;
   text-align: center;
   overflow: hidden;
-  padding: 1rem 0;
+  padding: 2rem 1rem;
 }
 
 /* ===== Title ===== */
 .final-title {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   font-weight: 700;
   color: #ffffff;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
   letter-spacing: 1px;
-  margin-top: 0.8rem;
-  margin-bottom: 1rem;
-  z-index: 10;
-  animation: slideDown 1s ease;
+  margin-bottom: 1.2rem;
+  animation: fadeInDown 1s ease;
 }
 
-@keyframes slideDown {
+@keyframes fadeInDown {
   from {
     transform: translateY(-20px);
     opacity: 0;
@@ -45,35 +43,30 @@
 .final-content {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  flex-grow: 1;
-  gap: 1rem;
-  margin-top: -0.5rem;
-  max-height: 78vh;
+  justify-content: center;
+  gap: 1.5rem;
+  width: 100%;
+  flex-grow: 0;
 }
 
 /* ===== Portrait Card ===== */
-.final-card {
+/* .final-card {
   background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(10px);
   border-radius: 20px;
   padding: 12px;
-  margin: 20px;
   box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
   animation: popIn 0.8s ease-out;
   display: flex;
   justify-content: center;
   align-items: center;
-
-  /* 🔹 Responsive Sizing */
-  width: clamp(220px, 35vw, 420px);
-  height: auto;
-}
+  width: clamp(250px, 35vw, 400px);
+} */
 
 @keyframes popIn {
   from {
-    transform: scale(0.85);
+    transform: scale(0.9);
     opacity: 0;
   }
   to {
@@ -84,10 +77,10 @@
 
 /* ===== Final Image ===== */
 .final-image {
-  border-radius: 12px;
+  /* border-radius: 12px; */
   width: 100%;
   height: auto;
-  max-height: 70vh;
+  max-height: 75vh;
   object-fit: contain;
   box-shadow:
     0 0 25px rgba(19, 19, 19, 0.5),
@@ -95,17 +88,14 @@
     0 0 70px rgba(49, 6, 32, 0.4);
 }
 
-/* ===== Button Section ===== */
-.btn-box {
-  margin-top: 1.8rem;
-}
-
 /* ===== Dual Buttons Layout ===== */
 .dual-buttons {
   display: flex;
+  flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 1.2rem;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 /* ===== Primary (Generate QR) Button ===== */
@@ -114,7 +104,7 @@
   border: none;
   color: #fff;
   font-weight: 600;
-  font-size: 1.1rem;
+  font-size: 1rem;
   border-radius: 50px;
   padding: 0.7rem 2.4rem;
   cursor: pointer;
@@ -133,7 +123,7 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #ffffff;
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 1rem;
   border-radius: 50px;
   padding: 0.7rem 2.4rem;
   cursor: pointer;
@@ -174,15 +164,19 @@
 }
 
 .qr-title {
-  font-size: 1.4rem;
+  font-size: 1.0rem;
   font-weight: 600;
   margin-bottom: 1.2rem;
   text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
 }
+.qr-canvas{
+  width: 120px !important;
+  height: 120px !important;
+}
 
 /* ===== Back Button in QR Modal ===== */
 .close-btn {
-  margin-top: 1.5rem;
+  
   background: linear-gradient(135deg, #0047ff 0%, #7a00ff 50%, #ff0099 100%);
   border: none;
   color: white;
@@ -210,13 +204,14 @@
   }
 }
 
-/* ===== Responsive Adjustments ===== */
+/* ===== Responsive Fixes ===== */
 @media (max-width: 1024px) {
   .final-card {
     width: clamp(260px, 55vw, 460px);
   }
-  .final-title {
-    font-size: 1.5rem;
+
+  .dual-buttons {
+    gap: 1rem;
   }
 }
 

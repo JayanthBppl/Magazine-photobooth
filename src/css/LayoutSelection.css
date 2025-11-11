@@ -42,9 +42,9 @@
 }
 
 .layout-image {
-  width: 350px;
-  max-width: 85vw;
-  height: 500px;
+  width: 320px;
+  /* max-width: 85vw; */
+  height: 550px;
   border-radius: 18px;
   object-fit: cover;
   box-shadow:
@@ -197,15 +197,15 @@
 /* === Responsive Adjustments === */
 @media (max-width: 1024px) {
   .layout-image {
-    width: 340px;
-    height: 480px;
+    width: 300px;
+    height: 550px;
   }
 }
 
 @media (max-width: 820px) {
   .layout-image {
     width: 300px;
-    height: 440px;
+    height: 550px;
   }
 }
 

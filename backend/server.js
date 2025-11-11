@@ -6,15 +6,14 @@ const mongoose = require("mongoose");
 const nodemailer = require("nodemailer");
 const path = require("path");
 const cloudinary = require("cloudinary").v2;
-const QRCode = require("qrcode");
 const axios = require("axios");
 const FormData = require("form-data");
 const User = require("./models/User");
+const Consent = require("./models/Consent");
 const sharp = require("sharp");
 const fs = require("fs");
 const archiver = require("archiver");
-
-
+const Session = require("./models/Session");
 
 
 const app = express();
@@ -22,15 +21,14 @@ const app = express();
 // ----------------- Middleware ----------------- //
 app.use(
   cors({
-    origin: ["https://magazine-photobooth.netlify.app","http://localhost:3000"],
+    origin: ["https://magazine-photobooth.netlify.app", "http://localhost:3000"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
-app.use('/final-images', express.static(path.join(__dirname, 'final-images')));
-
+app.use("/final-images", express.static(path.join(__dirname, "final-images")));
 
 // ----------------- Cloudinary Setup ----------------- //
 cloudinary.config({
@@ -56,31 +54,31 @@ mongoose
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
-  secure: false, // use STARTTLS (587)
+  secure: false,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
 
-
 // ----------------- User Routes ----------------- //
-app.post("/save-user", async (req, res) => {
-  const { name, email } = req.body;
-  if (!name || !email)
-    return res.status(400).json({ error: "Name and email are required" });
+// app.post("/save-user", async (req, res) => {
+//   const { name, email } = req.body;
+//   if (!name || !email)
+//     return res.status(400).json({ error: "Name and email are required" });
 
-  try {
-    const newUser = new User({ name, email });
-    await newUser.save();
-    res.json({ success: true, user: newUser });
-  } catch (err) {
-    if (err.code === 11000)
-      return res.status(400).json({ error: "Email already exists" });
-    res.status(500).json({ error: "Failed to save user" });
-  }
-});
+//   try {
+//     const newUser = new User({ name, email });
+//     await newUser.save();
+//     res.json({ success: true, user: newUser });
+//   } catch (err) {
+//     if (err.code === 11000)
+//       return res.status(400).json({ error: "Email already exists" });
+//     res.status(500).json({ error: "Failed to save user" });
+//   }
+// });
 
+// ----------------- Get All Users ----------------- //
 app.get("/users", async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
@@ -111,6 +109,7 @@ app.get("/cloudinary/latest-dslr", async (req, res) => {
   }
 });
 
+// ----------------- Retake Utility ----------------- //
 app.post("/retake", async (req, res) => {
   try {
     const result = await cloudinary.search
@@ -120,7 +119,9 @@ app.post("/retake", async (req, res) => {
       .execute();
 
     if (!result.resources || result.resources.length === 0) {
-      return res.status(404).json({ success: false, error: "No image to delete" });
+      return res
+        .status(404)
+        .json({ success: false, error: "No image to delete" });
     }
 
     const publicId = result.resources[0].public_id;
@@ -137,14 +138,14 @@ app.post("/retake", async (req, res) => {
   }
 });
 
-app.post("/process-image", async (req, res) => {
+// ----------------- Main Endpoint: Submit Image + Consent ----------------- //
+app.post("/submit-image-consent", async (req, res) => {
   try {
-    const { imageData, layoutId } = req.body;
-
-    if (!imageData || !layoutId) {
+    const { imageData, layoutId, name, email, consent } = req.body;
+    if (!imageData || !layoutId || !name || !email) {
       return res.status(400).json({
         success: false,
-        message: "Missing imageData or layoutId",
+        message: "Missing required fields (imageData, name, email, layoutId)",
       });
     }
 
@@ -174,7 +175,13 @@ app.post("/process-image", async (req, res) => {
 
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
-    console.log(`✅ BG removed image size: ${bgMeta.width}x${bgMeta.height}`);
+
+    // 🟩 Log background-removed image details
+    console.log(`🖼️ Background Removed Image Metadata:`);
+    console.log(`   ➤ Width:  ${bgMeta.width}px`);
+    console.log(`   ➤ Height: ${bgMeta.height}px`);
+    console.log(`   ➤ Format: ${bgMeta.format}`);
+    console.log(`   ➤ Channels: ${bgMeta.channels}`);
 
     // === Layout setup ===
     const baseDir = path.join(__dirname, "assets");
@@ -182,40 +189,54 @@ app.post("/process-image", async (req, res) => {
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
 
+    const layoutMeta = await sharp(layoutPath).metadata();
+    const aspectRatio = layoutMeta.width / layoutMeta.height;
+
     const LAYOUT_WIDTH = 900;
-    const LAYOUT_HEIGHT = 1440;
+    const LAYOUT_HEIGHT = Math.round(LAYOUT_WIDTH / aspectRatio);
 
     const [layoutBuffer, layerBuffer] = await Promise.all([
-      sharp(layoutPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
-      sharp(layerPath).resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "fill" }).toBuffer(),
+      sharp(layoutPath)
+        .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
+        .toBuffer(),
+      sharp(layerPath)
+        .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
+        .toBuffer(),
     ]);
 
-    // === Smart scaling logic ===
-    const maxUserWidth = LAYOUT_WIDTH * 0.95;
-    const maxUserHeight = LAYOUT_HEIGHT * 0.95;
+    const maxUserWidth = LAYOUT_WIDTH * 0.9;
+    const maxUserHeight = LAYOUT_HEIGHT * 0.9;
+    const userAspect = bgMeta.width / bgMeta.height;
 
-    const aspectRatio = bgMeta.width / bgMeta.height;
-    let targetWidth = Math.min(maxUserWidth, bgMeta.width * 1.7);
-    let targetHeight = targetWidth / aspectRatio;
+    // Stronger enlargement logic based on layout size
+let targetWidth = bgMeta.width * 4.5; // 4.5x natural upscale
+let targetHeight = targetWidth / userAspect;
 
-    if (targetHeight > maxUserHeight) {
-      targetHeight = maxUserHeight;
-      targetWidth = targetHeight * aspectRatio;
-    }
+// Ensure it fits layout bounds
+if (targetWidth > maxUserWidth) {
+  targetWidth = maxUserWidth;
+  targetHeight = targetWidth / userAspect;
+}
+if (targetHeight > maxUserHeight) {
+  targetHeight = maxUserHeight;
+  targetWidth = targetHeight * userAspect;
+}
+
+    // 🟦 Log computed target size
+    console.log(`📏 Computed Target Dimensions: ${Math.round(targetWidth)} x ${Math.round(targetHeight)}`);
 
     const scaledUser = await sharp(bgRemovedBuffer)
-      .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
+      .resize(Math.round(targetWidth), Math.round(targetHeight), {
+        fit: "contain",
+      })
       .toBuffer();
 
-    // === Positioning logic ===
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.35);
+    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.25);
 
-    console.log(
-      `🧮 Placement → left=${left}, top=${top}, scaled=${Math.round(targetWidth)}x${Math.round(targetHeight)}`
-    );
 
-    // === Composite final image ===
+    console.log(`📍 Placement Coordinates -> Left: ${left}, Top: ${top}`);
+
     const composedImageBuffer = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
@@ -224,14 +245,10 @@ app.post("/process-image", async (req, res) => {
       .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    console.log("✅ Final composition successful");
-
-    // === Generate Base64 for Instant Preview ===
     const finalBase64 = `data:image/jpeg;base64,${composedImageBuffer.toString("base64")}`;
 
-    // === Upload to Cloudinary (Async Stream) ===
+    // === Upload to Cloudinary ===
     console.log("☁️ Uploading final image to Cloudinary...");
-
     const uploadResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -246,48 +263,101 @@ app.post("/process-image", async (req, res) => {
           resolve(result);
         }
       );
-
       require("streamifier").createReadStream(composedImageBuffer).pipe(uploadStream);
     });
 
-    console.log("✅ Uploaded to Cloudinary:", uploadResult.secure_url);
-
-    // === Respond with Both Base64 & Cloudinary URL ===
-    res.json({
-      success: true,
-      message: "Image processed successfully",
-      finalImage: finalBase64, // for immediate display
-      cloudinaryUrl: uploadResult.secure_url, // for permanent storage
+    // === Save everything into one document ===
+    const newSession = new Session({
+      name,
+      email,
+      layoutId,
+      consent: !!consent,
+      cloudinaryUrl: uploadResult.secure_url,
       publicId: uploadResult.public_id,
     });
 
+    await newSession.save();
+    console.log(`✅ Session saved (${consent ? "Agreed" : "Declined"}) for ${name}`);
+
+    res.json({
+      success: true,
+      message: "Session stored successfully",
+      finalImage: finalBase64,
+      cloudinaryUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
+    });
   } catch (error) {
-    console.error("❌ Processing error:", error);
+    console.error("❌ submit-image-consent error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to compose or upload image",
+      message: error.message || "Failed to process or upload image",
     });
   }
 });
 
 
 
+// ----------------- Delete Image (for Retake) ----------------- //
+app.post("/delete-image", async (req, res) => {
+  try {
+    const { publicId } = req.body;
+    if (!publicId)
+      return res
+        .status(400)
+        .json({ success: false, message: "publicId required" });
 
+    await cloudinary.uploader.destroy(publicId, {
+      invalidate: true,
+      resource_type: "image",
+    });
 
-// ----------------- QR Code Generator ----------------- //
-// app.post("/generate-qr", async (req, res) => {
-//   const { imageUrl } = req.body;
-//   if (!imageUrl)
-//     return res.status(400).json({ success: false, message: "Image URL is required" });
+    res.json({
+      success: true,
+      message: "Image deleted successfully",
+    });
+  } catch (err) {
+    console.error("❌ delete-image error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete Cloudinary image" });
+  }
+});
+// ----------------- Delete Image & Session ----------------- //
+app.post("/delete-session", async (req, res) => {
+  try {
+    const { publicId } = req.body;
+    if (!publicId)
+      return res
+        .status(400)
+        .json({ success: false, message: "publicId required" });
 
-//   try {
-//     const qrDataUrl = await QRCode.toDataURL(imageUrl, { width: 300 });
-//     res.json({ success: true, qrCode: qrDataUrl });
-//   } catch (err) {
-//     console.error("❌ QR Code error:", err);
-//     res.status(500).json({ success: false, message: "Failed to generate QR code" });
-//   }
-// });
+    // 🔹 Delete Cloudinary image
+    await cloudinary.uploader.destroy(publicId, {
+      invalidate: true,
+      resource_type: "image",
+    });
+
+    // 🔹 Delete MongoDB record
+    const result = await Session.findOneAndDelete({ publicId });
+
+    if (result) {
+      console.log(`🗑️ Deleted session & image for ${publicId}`);
+    } else {
+      console.warn(`⚠️ No session found for ${publicId}`);
+    }
+
+    res.json({
+      success: true,
+      message: "Session and image deleted successfully",
+    });
+  } catch (err) {
+    console.error("❌ delete-session error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete Cloudinary image or session",
+    });
+  }
+});
 
 // ----------------- Start Server ----------------- //
 const PORT = process.env.PORT || 5000;
