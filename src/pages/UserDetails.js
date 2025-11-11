@@ -22,8 +22,8 @@ function UserAndLayoutPage() {
     { id: "layout3", src: "/layouts/layout3.jpg" },
   ];
 
-  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
-  // const BASE_URL = "http://localhost:5000";
+  // const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+  const BASE_URL = "http://localhost:5000";
 
   useEffect(() => {
     if (formSubmitted) {
@@ -176,7 +176,12 @@ const handleLayoutSelect = (layout) => {
     
 {/* ======= Step 2: Layout Selection ======= */}
 {formSubmitted && (
-  <div className="layout-selection-container text-center mt-5">
+  <div
+    className="layout-selection-container text-center mt-5"
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+  >
     <h3 className="mb-4">Select Your Layout</h3>
 
     <div className="layout-display-container">
@@ -190,12 +195,11 @@ const handleLayoutSelect = (layout) => {
             key={layout.id}
             src={`${process.env.PUBLIC_URL}${layout.src}`}
             alt={layout.id}
-            className={`layout-image ${
-              i === activeIndex ? "active" : "inactive"
-            }`}
-            onClick={() => handleLayoutSelect(layout)} // ✅ direct layout binding
+            className={`layout-image ${i === activeIndex ? "active" : "inactive"}`}
+            onClick={() => handleLayoutSelect(layout)}
             style={{
               display: i === activeIndex ? "block" : "none",
+              transition: "all 0.4s ease-in-out",
             }}
           />
         ))}
@@ -217,6 +221,7 @@ const handleLayoutSelect = (layout) => {
     </div>
   </div>
 )}
+
 
 
     </div>

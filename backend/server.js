@@ -138,37 +138,30 @@ app.post("/retake", async (req, res) => {
   }
 });
 
-// ----------------- Main Endpoint: Submit Image + Consent ----------------- //
 app.post("/submit-image-consent", async (req, res) => {
   try {
     const { imageData, layoutId, name, email, consent } = req.body;
     if (!imageData || !layoutId || !name || !email) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields (imageData, name, email, layoutId)",
+        message: "Missing required fields",
       });
     }
 
     console.log(`🧩 Processing layout: ${layoutId}`);
 
-    // === Decode base64 ===
-    let base64Data = imageData;
-    if (base64Data.startsWith("data:image")) {
-      base64Data = base64Data.split(",")[1];
-    }
+    let base64Data = imageData.startsWith("data:image")
+      ? imageData.split(",")[1]
+      : imageData;
     const inputBuffer = Buffer.from(base64Data, "base64");
 
-    // === Remove background ===
+    // Background removal
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
 
-    console.log("🎨 Removing background...");
     const bgResponse = await axios.post("https://api.remove.bg/v1.0/removebg", formData, {
-      headers: {
-        ...formData.getHeaders(),
-        "X-Api-Key": process.env.REMOVEBG_KEY,
-      },
+      headers: { ...formData.getHeaders(), "X-Api-Key": process.env.REMOVEBG_KEY },
       responseType: "arraybuffer",
       timeout: 60000,
     });
@@ -176,66 +169,41 @@ app.post("/submit-image-consent", async (req, res) => {
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
 
-    // 🟩 Log background-removed image details
-    console.log(`🖼️ Background Removed Image Metadata:`);
-    console.log(`   ➤ Width:  ${bgMeta.width}px`);
-    console.log(`   ➤ Height: ${bgMeta.height}px`);
-    console.log(`   ➤ Format: ${bgMeta.format}`);
-    console.log(`   ➤ Channels: ${bgMeta.channels}`);
-
-    // === Layout setup ===
+    // Layout setup
     const baseDir = path.join(__dirname, "assets");
     const layoutFolder = path.join(baseDir, layoutId);
     const layoutPath = path.join(layoutFolder, "layout-img.png");
     const layerPath = path.join(layoutFolder, "layer-img.png");
 
-    const layoutMeta = await sharp(layoutPath).metadata();
-    const aspectRatio = layoutMeta.width / layoutMeta.height;
-
-    const LAYOUT_WIDTH = 900;
-    const LAYOUT_HEIGHT = Math.round(LAYOUT_WIDTH / aspectRatio);
+    const LAYOUT_WIDTH = 1080;
+    const LAYOUT_HEIGHT = 1920;
 
     const [layoutBuffer, layerBuffer] = await Promise.all([
-      sharp(layoutPath)
-        .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
-        .toBuffer(),
-      sharp(layerPath)
-        .resize(LAYOUT_WIDTH, LAYOUT_HEIGHT, { fit: "cover" })
-        .toBuffer(),
+      sharp(layoutPath).toBuffer(),
+      sharp(layerPath).toBuffer(),
     ]);
 
-    const maxUserWidth = LAYOUT_WIDTH * 0.9;
-    const maxUserHeight = LAYOUT_HEIGHT * 0.9;
+    // Scale user image proportionally
     const userAspect = bgMeta.width / bgMeta.height;
+    const targetHeight = LAYOUT_HEIGHT * 0.95; // fills 95% of layout
+    const targetWidth = targetHeight * userAspect;
 
-    // Stronger enlargement logic based on layout size
-let targetWidth = bgMeta.width * 4.5; // 4.5x natural upscale
-let targetHeight = targetWidth / userAspect;
+    // Place bottom-center
+    const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
+    // Slightly upper-centered framing
+const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.8);
 
-// Ensure it fits layout bounds
-if (targetWidth > maxUserWidth) {
-  targetWidth = maxUserWidth;
-  targetHeight = targetWidth / userAspect;
-}
-if (targetHeight > maxUserHeight) {
-  targetHeight = maxUserHeight;
-  targetWidth = targetHeight * userAspect;
-}
-
-    // 🟦 Log computed target size
-    console.log(`📏 Computed Target Dimensions: ${Math.round(targetWidth)} x ${Math.round(targetHeight)}`);
 
     const scaledUser = await sharp(bgRemovedBuffer)
-      .resize(Math.round(targetWidth), Math.round(targetHeight), {
-        fit: "contain",
-      })
+      .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
       .toBuffer();
 
-    const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    const top = Math.round(LAYOUT_HEIGHT / 2 - targetHeight * 0.25);
-
-
-    console.log(`📍 Placement Coordinates -> Left: ${left}, Top: ${top}`);
+    console.log(`
+    📐 Placement Diagnostics:
+       Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
+       User: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
+       Position: left=${left}, top=${top}
+    `);
 
     const composedImageBuffer = await sharp(layoutBuffer)
       .composite([
@@ -247,8 +215,7 @@ if (targetHeight > maxUserHeight) {
 
     const finalBase64 = `data:image/jpeg;base64,${composedImageBuffer.toString("base64")}`;
 
-    // === Upload to Cloudinary ===
-    console.log("☁️ Uploading final image to Cloudinary...");
+    // Upload to Cloudinary
     const uploadResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -258,15 +225,12 @@ if (targetHeight > maxUserHeight) {
           format: "jpg",
           overwrite: true,
         },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
+        (error, result) => (error ? reject(error) : resolve(result))
       );
       require("streamifier").createReadStream(composedImageBuffer).pipe(uploadStream);
     });
 
-    // === Save everything into one document ===
+    // Save session
     const newSession = new Session({
       name,
       email,
@@ -277,7 +241,6 @@ if (targetHeight > maxUserHeight) {
     });
 
     await newSession.save();
-    console.log(`✅ Session saved (${consent ? "Agreed" : "Declined"}) for ${name}`);
 
     res.json({
       success: true,
@@ -294,6 +257,9 @@ if (targetHeight > maxUserHeight) {
     });
   }
 });
+
+
+
 
 
 

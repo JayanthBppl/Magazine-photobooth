@@ -7,7 +7,7 @@ import LoadingGif from "../assets/loading.gif";
 const CameraPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { layoutId, name, email } = location.state || {}; // from previous screen
+  const { layoutId, name, email } = location.state || {};
   const { setProcessedImage } = useContext(AppContext);
 
   const videoRef = useRef(null);
@@ -19,34 +19,31 @@ const CameraPage = () => {
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   const [hasStartedCamera, setHasStartedCamera] = useState(false);
-
   const [capturedDataUrl, setCapturedDataUrl] = useState(null);
   const [showConsent, setShowConsent] = useState(false);
 
   const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
-  // const BASE_URL = "http://localhost:5000";
 
-  const FRAME_WIDTH = 1880;
-  const FRAME_HEIGHT = 2500;
+  // ✅ Fixed size matching backend layout
+  const FRAME_WIDTH = 1080;
+  const FRAME_HEIGHT = 1920;
 
-  /** 🎥 Detect available cameras */
+  /** 🎥 Detect cameras */
   useEffect(() => {
-    const detect = async () => {
+    const detectCameras = async () => {
       try {
-        const list = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = list.filter((d) => d.kind === "videoinput");
+        const devicesList = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
         setDevices(videoInputs);
-        const front = videoInputs.find((d) =>
+        const frontCam = videoInputs.find((d) =>
           d.label.toLowerCase().includes("front")
         );
-        setSelectedDeviceId(
-          front ? front.deviceId : videoInputs[0]?.deviceId || null
-        );
+        setSelectedDeviceId(frontCam ? frontCam.deviceId : videoInputs[0]?.deviceId || null);
       } catch (err) {
         console.error("Camera detection error:", err);
       }
     };
-    detect();
+    detectCameras();
   }, []);
 
   /** 🎞 Start camera */
@@ -60,22 +57,13 @@ const CameraPage = () => {
         },
         audio: false,
       };
-      if (selectedDeviceId)
-        constraints.video.deviceId = { exact: selectedDeviceId };
+      if (selectedDeviceId) constraints.video.deviceId = { exact: selectedDeviceId };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCameraReady(true);
         setHasStartedCamera(true);
-
-        // Reload overlay
-        setTimeout(() => {
-          const overlayImg = document.querySelector(".overlay-frame");
-          if (overlayImg) {
-            overlayImg.src = `/layouts/${layoutId}/layer-img.png?cacheBust=${Date.now()}`;
-          }
-        }, 300);
       }
     } catch (err) {
       console.error("Camera access error:", err);
@@ -83,7 +71,7 @@ const CameraPage = () => {
     }
   };
 
-  /** 🚀 Auto-start camera */
+  /** Auto-start camera */
   useEffect(() => {
     const autoStart = async () => {
       try {
@@ -95,63 +83,68 @@ const CameraPage = () => {
     };
     autoStart();
 
-    // Cleanup stream
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((track) => track.stop());
+        videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
       }
     };
   }, [selectedDeviceId, layoutId]);
 
-  /** 📸 Capture image locally */
- /** 📸 Capture image locally with strong zoom */
-const captureImageLocal = () => {
-  const video = videoRef.current;
-  const canvas = canvasRef.current;
-  if (!video || !video.videoWidth) {
-    alert("Camera not ready");
-    return;
-  }
+  /** 📸 Capture Image (No Zoom) */
+  const captureImageLocal = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !video.videoWidth) {
+      alert("Camera not ready");
+      return;
+    }
 
-  canvas.width = FRAME_WIDTH;
-  canvas.height = FRAME_HEIGHT;
+    canvas.width = FRAME_WIDTH;
+canvas.height = FRAME_HEIGHT;
 
-  const ctx = canvas.getContext("2d");
-  ctx.save();
+const ctx = canvas.getContext("2d");
+ctx.save();
+ctx.scale(-1, 1);
 
-  // Mirror effect for front camera
-  ctx.scale(-1, 1);
+// Get video’s actual dimensions
+const videoAspect = video.videoWidth / video.videoHeight;
+const canvasAspect = FRAME_WIDTH / FRAME_HEIGHT;
 
-  // ✅ Zoom factor — controls how big the user looks
-  const zoomFactor = 1.35; // Try 1.5–1.8 for portrait crop
+let drawWidth, drawHeight, offsetX, offsetY;
 
-  // Scaled dimensions
-  const zoomedWidth = FRAME_WIDTH * zoomFactor;
-  const zoomedHeight = FRAME_HEIGHT * zoomFactor;
+// ✅ Maintain aspect ratio without stretching
+if (videoAspect > canvasAspect) {
+  // Video is wider than 9:16 → crop horizontally
+  drawHeight = FRAME_HEIGHT;
+  drawWidth = FRAME_HEIGHT * videoAspect;
+  offsetX = (drawWidth - FRAME_WIDTH) / 2;
+  offsetY = 0;
+} else {
+  // Video is taller → crop vertically
+  drawWidth = FRAME_WIDTH;
+  drawHeight = FRAME_WIDTH / videoAspect;
+  offsetX = 0;
+  offsetY = (drawHeight - FRAME_HEIGHT) / 2;
+}
 
-  // Center the zoom (crop equally from all sides)
-  const offsetX = (zoomedWidth - FRAME_WIDTH) / 2;
-  const offsetY = (zoomedHeight - FRAME_HEIGHT) / 2;
+// Draw cropped portion of video feed
+ctx.drawImage(
+  video,
+  -FRAME_WIDTH - offsetX,
+  -offsetY,
+  drawWidth,
+  drawHeight
+);
 
-  // Draw enlarged area
-  ctx.drawImage(
-    video,
-    -FRAME_WIDTH - offsetX,
-    -offsetY,
-    zoomedWidth,
-    zoomedHeight
-  );
+ctx.restore();
 
-  ctx.restore();
+const data = canvas.toDataURL("image/png");
+setCapturedDataUrl(data);
+setShowConsent(true);
 
-  const data = canvas.toDataURL("image/png");
-  setCapturedDataUrl(data);
-  setShowConsent(true);
-};
+  };
 
-
-  /** 🕒 Countdown before capture */
+  /** Countdown before capture */
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
     setCountdown(3);
@@ -167,7 +160,7 @@ const captureImageLocal = () => {
     }, 1000);
   };
 
-  /** ✅ Submit image, name, email, and consent */
+  /** ✅ Submit Image with Consent */
   const submitImageWithConsent = async (consentValue) => {
     if (!capturedDataUrl) return;
     setProcessing(true);
@@ -214,46 +207,23 @@ const captureImageLocal = () => {
 
   return (
     <div key={layoutId} className="camera-container">
-      {/* 🟣 Full-screen Loading Overlay */}
       {processing && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            flexDirection: "column",
-            zIndex: 9999,
-          }}
-        >
-          <img
-            src={LoadingGif}
-            alt="Processing..."
-            style={{ width: "120px", marginBottom: "1rem" }}
-          />
-          <p style={{ color: "#fff", fontSize: "1rem", fontWeight: "500" }}>
-            Processing your photo...
-          </p>
+        <div className="processing-overlay">
+          <img src={LoadingGif} alt="Processing..." />
+          <p>Processing your photo...</p>
         </div>
       )}
 
-      <div
-        className="camera-center-box"
-        style={{ opacity: processing ? 0.2 : 1 }}
-      >
+      <div className="camera-center-box" style={{ opacity: processing ? 0.3 : 1 }}>
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
-        {/* Camera selector */}
         {devices.length > 1 && (
           <div className="camera-select-box">
             <label className="camera-select-label">Switch Camera:</label>
             <select
               value={selectedDeviceId || ""}
-              className="camera-dropdown"
               onChange={(e) => setSelectedDeviceId(e.target.value)}
+              className="camera-dropdown"
             >
               {devices.map((d, i) => (
                 <option key={d.deviceId} value={d.deviceId}>
@@ -270,7 +240,6 @@ const captureImageLocal = () => {
           </button>
         )}
 
-        {/* Video + Overlay */}
         <div className="camera-frame">
           <video
             ref={videoRef}
@@ -280,11 +249,11 @@ const captureImageLocal = () => {
             className="video-feed"
             style={{ transform: "scaleX(-1)" }}
           />
-          {/* <img
+          <img
             src={`/layouts/${layoutId}/layer-img.png?cacheBust=${Date.now()}`}
             alt="overlay"
             className="overlay-frame"
-          /> */}
+          />
           {countdown > 0 && <div className="countdown">{countdown}</div>}
         </div>
 
@@ -299,93 +268,38 @@ const captureImageLocal = () => {
         </button>
       </div>
 
-      {/* 🟣 Consent Modal */}
-      {showConsent && (
+      {showConsent && !processing && (
         <div className="consent-overlay">
-          <div
-            className="consent-box"
-            style={{
-              maxWidth: 520,
-              padding: "1.5rem 1.5rem",
-              textAlign: "center",
-            }}
-          >
-            <h4 style={{ fontSize: "1.1rem", marginBottom: "0.8rem" }}>
-              Consent & Agreement
-            </h4>
-            <p
-              className="consent-text"
-              style={{
-                fontSize: "0.9rem",
-                lineHeight: "1.4",
-                marginBottom: "1rem",
-                color: "#ddd",
-              }}
-            >
-              By taking a photo, you agree to receive a digital copy of your
-              image. You also consent that the image may be used by Myntra for
-              non-commercial internal communications and for external Employer
-              Branding purposes.
+          <div className="consent-box">
+            <h4>Consent & Agreement</h4>
+            <p>
+              By taking a photo, you agree to receive a digital copy of your image. 
+              You also consent that the image may be used by Myntra for 
+              internal communications and Employer Branding purposes.
             </p>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                alignItems: "center",
-              }}
-            >
+            <div className="consent-buttons">
               <button
-                className="btn"
                 onClick={() => {
+                  setShowConsent(false);
                   setProcessing(true);
                   submitImageWithConsent(true);
-                }}
-                style={{
-                  background:
-                    "linear-gradient(135deg,#0047FF,#7A00FF,#FF0099)",
-                  border: "none",
-                  fontSize: "0.9rem",
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  width: "180px",
                 }}
               >
                 I Agree
               </button>
-
               <button
-                className="btn"
                 onClick={() => {
+                  setShowConsent(false);
                   setProcessing(true);
                   submitImageWithConsent(false);
-                }}
-                style={{
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: "#fff",
-                  fontSize: "0.9rem",
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  width: "180px",
                 }}
               >
                 Do Not Agree
               </button>
-
               <button
-                className="btn"
                 onClick={() => {
                   setShowConsent(false);
                   setCapturedDataUrl(null);
-                }}
-                style={{
-                  fontSize: "0.8rem",
-                  marginTop: "4px",
-                  background: "transparent",
-                  color: "#bbb",
-                  border: "none",
                 }}
               >
                 Cancel

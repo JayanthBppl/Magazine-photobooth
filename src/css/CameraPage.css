@@ -1,4 +1,4 @@
-/* 🌈 ===== CAMERA PAGE (Floating Capture Button + Tablet Optimized) ===== */
+/* 🌈 ===== CAMERA PAGE (Tablet Optimized + Floating Button) ===== */
 
 .camera-container {
   display: flex;
@@ -16,15 +16,9 @@
 }
 
 @keyframes neonGradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .camera-center-box {
@@ -51,14 +45,14 @@
   max-width: 700px;
   aspect-ratio: 9 / 16;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 20px;
   box-shadow:
     0 0 35px rgba(255, 0, 153, 0.4),
     0 0 60px rgba(122, 0, 255, 0.4),
     inset 0 0 25px rgba(255, 255, 255, 0.08);
   background: radial-gradient(circle at center, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.6));
   animation: softGlow 3s ease-in-out infinite alternate;
-  margin-bottom: 100px; /* space for floating button */
+  margin-bottom: 100px;
 }
 
 .video-feed {
@@ -66,7 +60,19 @@
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  border-radius: 16px;
+  border-radius: 20px;
+}
+
+.overlay-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  border-radius: 20px;
+  z-index: 5;
 }
 
 @keyframes softGlow {
@@ -94,17 +100,12 @@
   text-shadow: 0 0 30px rgba(255, 0, 153, 0.8),
                0 0 60px rgba(122, 0, 255, 0.7);
   animation: pulseCount 1s ease-in-out infinite alternate;
+  z-index: 10;
 }
 
 @keyframes pulseCount {
-  0% {
-    transform: translate(-50%, 50%) scale(1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translate(-50%, 50%) scale(1.25);
-    opacity: 1;
-  }
+  0% { transform: translate(-50%, 50%) scale(1); opacity: 0.8; }
+  100% { transform: translate(-50%, 50%) scale(1.25); opacity: 1; }
 }
 
 /* ===== Floating Capture Button ===== */
@@ -174,7 +175,7 @@
 }
 
 /* ===== Loading Overlay ===== */
-.loading-gif-overlay {
+.processing-overlay {
   position: fixed;
   inset: 0;
   background: rgba(15, 0, 35, 0.9);
@@ -188,78 +189,138 @@
   text-align: center;
 }
 
-.loading-gif {
+.processing-overlay img {
   width: 90px;
   height: 90px;
   object-fit: contain;
   margin-bottom: 25px;
-  animation: popIn 0.6s ease-in-out;
 }
 
-.loading-text {
-  font-size: 1.3rem;
+.processing-overlay p {
+  font-size: 1.2rem;
   font-weight: 500;
   color: #ff0099;
   text-shadow: 0 0 20px rgba(255, 0, 153, 0.8);
-  animation: fadeInText 1.2s ease-in-out infinite alternate;
 }
 
-/* ===== Responsive Design ===== */
-@media (max-width: 1024px) {
+/* ===== Consent Overlay ===== */
+.consent-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  color: #fff;
+}
+
+.consent-box {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 2rem;
+  border-radius: 16px;
+  max-width: 520px;
+  text-align: center;
+}
+
+.consent-box h4 {
+  font-size: 1.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.consent-box p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #ddd;
+  margin-bottom: 1.2rem;
+}
+
+.consent-buttons button {
+  margin: 6px 0;
+  width: 180px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.consent-buttons button:first-child {
+  background: linear-gradient(135deg, #0047ff, #7a00ff, #ff0099);
+}
+
+.consent-buttons button:nth-child(2) {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.consent-buttons button:last-child {
+  background: transparent;
+  color: #bbb;
+  border: none;
+  font-size: 0.85rem;
+}
+
+/* ===== Responsive Design for Tablets (768px–1280px) ===== */
+@media (min-width: 768px) and (max-width: 1280px) {
   .camera-frame {
-    max-width: 550px;
+    max-width: 520px;
+    border-radius: 14px;
+    margin-bottom: 100px;
   }
+
   .camera-title {
     font-size: 1.4rem;
+    margin-bottom: 15px;
   }
+
+  .video-feed {
+    border-radius: 14px;
+    filter: brightness(1.05) contrast(1.05);
+  }
+
   .capture-btn {
     font-size: 1rem;
-    padding: 0.9rem 2.5rem;
+    padding: 0.9rem 2.3rem;
+    border-radius: 35px;
   }
-}
 
-@media (max-width: 768px) {
-  .camera-frame {
-    width: 85vw;
+  .camera-dropdown {
+    font-size: 0.9rem;
+    padding: 6px 10px;
   }
-  .capture-btn {
-    width: 85%;
-    font-size: 1rem;
-    border-radius: 40px;
-  }
-}
 
-@media (max-width: 480px) {
-  .camera-title {
-    font-size: 1.1rem;
+  .countdown {
+    font-size: 4rem;
   }
-  .camera-frame {
-    width: 90vw;
-  }
-  .capture-btn {
+
+  .consent-box {
     width: 90%;
-    font-size: 0.95rem;
+    padding: 1.5rem;
+  }
+}
+
+/* ===== Mobile (Below 768px) ===== */
+@media (max-width: 768px) {
+  .camera-title {
+    font-size: 1.2rem;
+  }
+
+  .camera-frame {
+    max-width: 90%;
+    border-radius: 10px;
+  }
+
+  .capture-btn {
     padding: 0.8rem 2rem;
+    font-size: 0.9rem;
   }
-}
 
-/* ===== Animations ===== */
-@keyframes popIn {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes fadeInText {
-  from {
-    opacity: 0.6;
-  }
-  to {
-    opacity: 1;
+  .countdown {
+    font-size: 3.5rem;
   }
 }
