@@ -205,46 +205,61 @@
 }
 
 /* ===== Responsive Fixes ===== */
+/* ======================================================
+   📱 RESPONSIVE FIXES (BUTTON ALIGNMENT)
+   ====================================================== */
 
-/* ✅ Tablet view (768px–1024px): buttons in a row */
+/* ✅ Tablet View (768px–1024px): All buttons in a row */
 @media (min-width: 768px) and (max-width: 1024px) {
   .dual-buttons {
-    flex-direction: row; /* ⬅️ align side by side */
+    flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 1.2rem; /* spacing between buttons */
+    gap: 1.2rem;
     margin-top: 1.5rem;
+    width: 100%;
   }
 
   .home-btn,
-  .secondary-btn {
-    width: auto; /* fit content naturally */
-    min-width: 160px; /* ensure consistent button width */
+  .secondary-btn,
+  .close-btn {
+    width: 160px; /* ✅ Equal width for all buttons */
     font-size: 15px;
-    padding: 0.7rem 2.2rem;
+    padding: 0.8rem 1.5rem;
+    text-align: center;
   }
 
   .final-card {
-    width: clamp(260px, 50vw, 420px);
+    width: clamp(260px, 45vw, 420px);
+  }
+
+  /* Ensure consistent spacing inside QR modal */
+  .qr-box .dual-buttons {
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.2rem;
   }
 }
 
-/* ✅ Mobile (below 768px): stack vertically */
-@media (max-width: 768px) {
+/* ✅ Mobile View (Below 768px): Stack vertically */
+@media (max-width: 767px) {
   .dual-buttons {
-    flex-direction: column; /* stacked layout */
-    gap: 0.8rem;
-    margin-top: 1.2rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
   }
 
   .home-btn,
-  .secondary-btn {
+  .secondary-btn,
+  .close-btn {
     width: 80%;
     font-size: 1rem;
+    padding: 0.8rem 1.5rem;
   }
 }
 
-/* ✅ Very small devices */
+/* ✅ Very Small Devices (Below 480px) */
 @media (max-width: 480px) {
   .final-title {
     font-size: 1.4rem;
@@ -256,5 +271,11 @@
 
   .final-image {
     max-height: 55vh;
+  }
+
+  .home-btn,
+  .secondary-btn,
+  .close-btn {
+    width: 90%;
   }
 }

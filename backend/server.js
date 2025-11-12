@@ -87,6 +87,30 @@ app.get("/users", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
+// ==========================
+// 📸 Fetch All Photo Sessions for Dashboard
+// ==========================
+app.get("/sessions", async (req, res) => {
+  try {
+    const sessions = await Session.find().sort({ createdAt: -1 });
+
+    // Optionally shape the data before sending
+    const formatted = sessions.map((s) => ({
+      name: s.name,
+      email: s.email,
+      photoUrl: s.cloudinaryUrl,
+      consent: s.consent,
+      layoutId: s.layoutId,
+      createdAt: s.createdAt,
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error("❌ Failed to fetch sessions:", err);
+    res.status(500).json({ error: "Failed to fetch sessions" });
+  }
+});
+
 
 // ----------------- DSLR Utility ----------------- //
 app.get("/cloudinary/latest-dslr", async (req, res) => {

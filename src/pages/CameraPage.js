@@ -297,7 +297,7 @@ const CameraPage = () => {
               >
                 Do Not Agree
               </button>
-              <button
+              {/* <button
                 className="cancel-btn"
                 onClick={() => {
                   setShowConsent(false);
@@ -305,7 +305,7 @@ const CameraPage = () => {
                 }}
               >
                 Cancel
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
