@@ -185,13 +185,18 @@ app.post("/submit-image-consent", async (req, res) => {
 
     // Scale user image proportionally
     const userAspect = bgMeta.width / bgMeta.height;
-    const targetHeight = LAYOUT_HEIGHT * 0.95; // fills 95% of layout
-    const targetWidth = targetHeight * userAspect;
+    let targetHeight = LAYOUT_HEIGHT * 0.95; // fills 95% of layout
+    let targetWidth = targetHeight * userAspect;
+
+    if (targetWidth > LAYOUT_WIDTH * 0.95) {
+  targetWidth = LAYOUT_WIDTH * 0.95;
+  targetHeight = targetWidth / userAspect;
+}
 
     // Place bottom-center
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
     // Slightly upper-centered framing
-const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 3.2);
+const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.6);
 
 
     const scaledUser = await sharp(bgRemovedBuffer)

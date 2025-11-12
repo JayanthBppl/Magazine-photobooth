@@ -205,20 +205,36 @@
 }
 
 /* ===== Responsive Fixes ===== */
-@media (max-width: 1024px) {
-  .final-card {
-    width: clamp(260px, 55vw, 460px);
+
+/* ✅ Tablet view (768px–1024px): buttons in a row */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .dual-buttons {
+    flex-direction: row; /* ⬅️ align side by side */
+    justify-content: center;
+    align-items: center;
+    gap: 1.2rem; /* spacing between buttons */
+    margin-top: 1.5rem;
   }
 
-  .dual-buttons {
-    gap: 1rem;
+  .home-btn,
+  .secondary-btn {
+    width: auto; /* fit content naturally */
+    min-width: 160px; /* ensure consistent button width */
+    font-size: 1rem;
+    padding: 0.7rem 2.2rem;
+  }
+
+  .final-card {
+    width: clamp(260px, 50vw, 420px);
   }
 }
 
+/* ✅ Mobile (below 768px): stack vertically */
 @media (max-width: 768px) {
   .dual-buttons {
-    flex-direction: column;
+    flex-direction: column; /* stacked layout */
     gap: 0.8rem;
+    margin-top: 1.2rem;
   }
 
   .home-btn,
@@ -228,6 +244,7 @@
   }
 }
 
+/* ✅ Very small devices */
 @media (max-width: 480px) {
   .final-title {
     font-size: 1.4rem;
