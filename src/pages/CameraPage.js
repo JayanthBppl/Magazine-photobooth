@@ -24,7 +24,6 @@ const CameraPage = () => {
 
   const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
 
-  // ✅ Fixed size matching backend layout
   const FRAME_WIDTH = 1080;
   const FRAME_HEIGHT = 1920;
 
@@ -100,48 +99,35 @@ const CameraPage = () => {
     }
 
     canvas.width = FRAME_WIDTH;
-canvas.height = FRAME_HEIGHT;
+    canvas.height = FRAME_HEIGHT;
 
-const ctx = canvas.getContext("2d");
-ctx.save();
-ctx.scale(-1, 1);
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.scale(-1, 1);
 
-// Get video’s actual dimensions
-const videoAspect = video.videoWidth / video.videoHeight;
-const canvasAspect = FRAME_WIDTH / FRAME_HEIGHT;
+    const videoAspect = video.videoWidth / video.videoHeight;
+    const canvasAspect = FRAME_WIDTH / FRAME_HEIGHT;
 
-let drawWidth, drawHeight, offsetX, offsetY;
+    let drawWidth, drawHeight, offsetX, offsetY;
 
-// ✅ Maintain aspect ratio without stretching
-if (videoAspect > canvasAspect) {
-  // Video is wider than 9:16 → crop horizontally
-  drawHeight = FRAME_HEIGHT;
-  drawWidth = FRAME_HEIGHT * videoAspect;
-  offsetX = (drawWidth - FRAME_WIDTH) / 2;
-  offsetY = 0;
-} else {
-  // Video is taller → crop vertically
-  drawWidth = FRAME_WIDTH;
-  drawHeight = FRAME_WIDTH / videoAspect;
-  offsetX = 0;
-  offsetY = (drawHeight - FRAME_HEIGHT) / 2;
-}
+    if (videoAspect > canvasAspect) {
+      drawHeight = FRAME_HEIGHT;
+      drawWidth = FRAME_HEIGHT * videoAspect;
+      offsetX = (drawWidth - FRAME_WIDTH) / 2;
+      offsetY = 0;
+    } else {
+      drawWidth = FRAME_WIDTH;
+      drawHeight = FRAME_WIDTH / videoAspect;
+      offsetX = 0;
+      offsetY = (drawHeight - FRAME_HEIGHT) / 2;
+    }
 
-// Draw cropped portion of video feed
-ctx.drawImage(
-  video,
-  -FRAME_WIDTH - offsetX,
-  -offsetY,
-  drawWidth,
-  drawHeight
-);
+    ctx.drawImage(video, -FRAME_WIDTH - offsetX, -offsetY, drawWidth, drawHeight);
+    ctx.restore();
 
-ctx.restore();
-
-const data = canvas.toDataURL("image/png");
-setCapturedDataUrl(data);
-setShowConsent(true);
-
+    const data = canvas.toDataURL("image/png");
+    setCapturedDataUrl(data);
+    setShowConsent(true);
   };
 
   /** Countdown before capture */
@@ -207,16 +193,20 @@ setShowConsent(true);
 
   return (
     <div key={layoutId} className="camera-container">
+
+      {/* 🔹 Processing Overlay */}
       {processing && (
         <div className="processing-overlay">
-          <img src={LoadingGif} alt="Processing..." />
-          <p>Processing your photo...</p>
+          <img src={LoadingGif} alt="Processing..." className="loading-icon" />
+          <p className="loading-text">Processing your photo...</p>
         </div>
       )}
 
+      {/* 🔹 Main Camera Section */}
       <div className="camera-center-box" style={{ opacity: processing ? 0.3 : 1 }}>
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
+        {/* Camera Switch */}
         {devices.length > 1 && (
           <div className="camera-select-box">
             <label className="camera-select-label">Switch Camera:</label>
@@ -234,12 +224,14 @@ setShowConsent(true);
           </div>
         )}
 
+        {/* Camera Start Button */}
         {!hasStartedCamera && (
           <button className="start-camera-btn" onClick={startCamera}>
             Start Camera
           </button>
         )}
 
+        {/* Camera Frame */}
         <div className="camera-frame">
           <video
             ref={videoRef}
@@ -249,16 +241,22 @@ setShowConsent(true);
             className="video-feed"
             style={{ transform: "scaleX(-1)" }}
           />
-          <img
+
+          {/* 🔹 Overlay Layer */}
+          {/* <img
             src={`/layouts/${layoutId}/layer-img.png?cacheBust=${Date.now()}`}
             alt="overlay"
             className="overlay-frame"
-          />
+          /> */}
+
+          {/* 🔹 Countdown Timer */}
           {countdown > 0 && <div className="countdown">{countdown}</div>}
         </div>
 
+        {/* Hidden Canvas */}
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
+        {/* Capture Button */}
         <button
           className="capture-btn"
           onClick={startCountdown}
@@ -268,17 +266,19 @@ setShowConsent(true);
         </button>
       </div>
 
+      {/* 🔹 Consent Modal */}
       {showConsent && !processing && (
         <div className="consent-overlay">
           <div className="consent-box">
             <h4>Consent & Agreement</h4>
             <p>
-              By taking a photo, you agree to receive a digital copy of your image. 
-              You also consent that the image may be used by Myntra for 
-              internal communications and Employer Branding purposes.
+              By taking a photo, you agree to receive a digital copy of your image. <br />
+              You also consent that the image may be used by Myntra for internal
+              communications and Employer Branding purposes.
             </p>
             <div className="consent-buttons">
               <button
+                className="agree-btn"
                 onClick={() => {
                   setShowConsent(false);
                   setProcessing(true);
@@ -288,6 +288,7 @@ setShowConsent(true);
                 I Agree
               </button>
               <button
+                className="decline-btn"
                 onClick={() => {
                   setShowConsent(false);
                   setProcessing(true);
@@ -297,6 +298,7 @@ setShowConsent(true);
                 Do Not Agree
               </button>
               <button
+                className="cancel-btn"
                 onClick={() => {
                   setShowConsent(false);
                   setCapturedDataUrl(null);

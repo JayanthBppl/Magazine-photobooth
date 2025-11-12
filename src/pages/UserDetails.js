@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useRef } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import "../css/UserDetails.css";
@@ -22,9 +22,7 @@ function UserAndLayoutPage() {
     { id: "layout3", src: "/layouts/layout3.jpg" },
   ];
 
-  // const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
-  const BASE_URL = "http://localhost:5000";
-
+  // 🔹 Preload layout images once form is submitted
   useEffect(() => {
     if (formSubmitted) {
       const preload = layouts.map(
@@ -41,11 +39,8 @@ function UserAndLayoutPage() {
   }, [formSubmitted]);
 
   const handleIntroContinue = () => setShowIntro(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const handleChange = (e) =>
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,42 +55,33 @@ function UserAndLayoutPage() {
     }, 700);
   };
 
-  // swipe helpers
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-
-  const nextLayout = () => setActiveIndex((p) => (p + 1) % layouts.length);
-  const prevLayout = () =>
-    setActiveIndex((p) => (p === 0 ? layouts.length - 1 : p - 1));
-
-  const handleTouchStart = (e) => (touchStartX.current = e.touches[0].clientX);
-  const handleTouchMove = (e) => (touchEndX.current = e.touches[0].clientX);
-  const handleTouchEnd = () => {
-    const distance = touchStartX.current - touchEndX.current;
-    if (distance > 60) nextLayout();
-    if (distance < -60) prevLayout();
+  // 🔹 Arrow Navigation
+  const nextLayout = () => {
+    setActiveIndex((prev) => (prev + 1) % layouts.length);
   };
 
-  // After selecting layout → go to camera page with name/email/layoutId
-const handleLayoutSelect = (layout) => {
-  console.log("🎯 Sending layoutId:", layout.id);
+  const prevLayout = () => {
+    setActiveIndex((prev) =>
+      prev === 0 ? layouts.length - 1 : prev - 1
+    );
+  };
 
-  setLayout(layout.id);
-  navigate("/camera", {
-    state: {
-      layoutId: layout.id, // ✅ exact ID of clicked image
-      name: formData.name,
-      email: formData.email,
-    },
-  });
-};
-
-
-
+  // 🔹 Layout selection handler
+  const handleLayoutSelect = (layout) => {
+    console.log("🎯 Selected layout:", layout.id);
+    setLayout(layout.id);
+    navigate("/camera", {
+      state: {
+        layoutId: layout.id,
+        name: formData.name,
+        email: formData.email,
+      },
+    });
+  };
 
   return (
     <div className="container py-5">
-      {/* ======= Opening Message ======= */}
+      {/* ======= Welcome Modal ======= */}
       {showIntro && (
         <div className="consent-overlay">
           <div className="consent-box">
@@ -123,7 +109,11 @@ const handleLayoutSelect = (layout) => {
       {/* ======= Step 1: User Details ======= */}
       {!formSubmitted && !showIntro && (
         <div className="text-center user-details-section">
-          <img src={myntraLogo2} alt="Myntra Logo" className="myntra-main-logo" />
+          <img
+            src={myntraLogo2}
+            alt="Myntra Logo"
+            className="myntra-main-logo"
+          />
           <h1 className="page-title mt-3">AI PHOTOBOOTH</h1>
 
           <div
@@ -173,57 +163,59 @@ const handleLayoutSelect = (layout) => {
         </div>
       )}
 
-    
-{/* ======= Step 2: Layout Selection ======= */}
-{formSubmitted && (
-  <div
-    className="layout-selection-container text-center mt-5"
-    onTouchStart={handleTouchStart}
-    onTouchMove={handleTouchMove}
-    onTouchEnd={handleTouchEnd}
-  >
-    <h3 className="mb-4">Select Your Layout</h3>
+      {/* ======= Step 2: Layout Selection (Arrow Only) ======= */}
+      {formSubmitted && (
+        <div className="layout-selection-container text-center mt-5">
+          <h3 className="mb-4">Select Your Layout</h3>
 
-    <div className="layout-display-container">
-      <button className="nav-arrow left" onClick={prevLayout}>
-        &#8249;
-      </button>
+          <div className="layout-display-container">
+            {/* Left Arrow */}
+            <button className="nav-arrow left" onClick={prevLayout}>
+              &#8249;
+            </button>
 
-      <div className="layout-wrapper">
-        {layouts.map((layout, i) => (
-          <img
-            key={layout.id}
-            src={`${process.env.PUBLIC_URL}${layout.src}`}
-            alt={layout.id}
-            className={`layout-image ${i === activeIndex ? "active" : "inactive"}`}
-            onClick={() => handleLayoutSelect(layout)}
-            style={{
-              display: i === activeIndex ? "block" : "none",
-              transition: "all 0.4s ease-in-out",
-            }}
-          />
-        ))}
-      </div>
+            {/* Layout Display */}
+            <div className="layout-wrapper">
+              {layouts.map((layout, i) => {
+                const isActive = i === activeIndex;
 
-      <button className="nav-arrow right" onClick={nextLayout}>
-        &#8250;
-      </button>
-    </div>
+                return (
+                  <img
+                    key={layout.id}
+                    src={`${process.env.PUBLIC_URL}${layout.src}`}
+                    alt={layout.id}
+                    className={`layout-image ${
+                      isActive ? "active" : "inactive"
+                    }`}
+                    style={{
+                      display: isActive ? "block" : "none",
+                      transition: "all 0.4s ease-in-out",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => handleLayoutSelect(layout)}
+                  />
+                );
+              })}
+            </div>
 
-    <div className="dots-indicator" style={{ marginTop: 20 }}>
-      {layouts.map((_, i) => (
-        <span
-          key={i}
-          className={`dot ${i === activeIndex ? "active" : ""}`}
-          onClick={() => setActiveIndex(i)}
-        />
-      ))}
-    </div>
-  </div>
-)}
+            {/* Right Arrow */}
+            <button className="nav-arrow right" onClick={nextLayout}>
+              &#8250;
+            </button>
+          </div>
 
-
-
+          {/* Dots Indicator */}
+          <div className="dots-indicator" style={{ marginTop: 20 }}>
+            {layouts.map((_, i) => (
+              <span
+                key={i}
+                className={`dot ${i === activeIndex ? "active" : ""}`}
+                onClick={() => setActiveIndex(i)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

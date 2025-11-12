@@ -10,8 +10,8 @@ const FinalPage = () => {
 
   const [showQR, setShowQR] = useState(false);
 
-  // const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
-  const BASE_URL = "http://localhost:5000";
+  const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+  // const BASE_URL = "http://localhost:5000";
 
   /** 🔄 Retake workflow */
  const handleRetake = async () => {
