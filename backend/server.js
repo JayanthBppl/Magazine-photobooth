@@ -200,31 +200,24 @@ if (targetHeight > LAYOUT_HEIGHT) {
 targetWidth *= 0.92;
 targetHeight *= 0.92;
 
-// ✅ Center horizontally
+// ✅ Center horizontally, align to bottom
 const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
+const top = Math.round(LAYOUT_HEIGHT - targetHeight);
 
-// Push image lower (to prevent overlapping header)
-let top = Math.round(LAYOUT_HEIGHT - targetHeight + 60); // move 60px down
-
-// If the image exceeds layout height, crop it virtually (Sharp-safe)
-if (top + targetHeight > LAYOUT_HEIGHT) {
-  const overflow = top + targetHeight - LAYOUT_HEIGHT;
-  top -= overflow; // pull up only the part exceeding
-}
-
+// Resize safely before compositing
 const scaledUser = await sharp(bgRemovedBuffer)
   .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
   .toBuffer();
 
 console.log(`
-📏 SMART LOWER-BOUND ALIGNMENT
+📏 FINAL SAFE BOTTOM ANCHOR
 ----------------------------------
+Device: ${bgMeta.width}x${bgMeta.height} (aspect: ${userAspect.toFixed(2)})
+Target: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
 Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
-User: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
-Top (requested): ${top}, Safe overflow handled
+Placement → left=${left}, top=${top}
 ----------------------------------
 `);
-
 
 
 
