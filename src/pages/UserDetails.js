@@ -9,7 +9,6 @@ function UserAndLayoutPage() {
   const { setLayout } = useContext(AppContext);
   const navigate = useNavigate();
 
-  const [showIntro, setShowIntro] = useState(true);
   const [formData, setFormData] = useState({ name: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [formSubmitted, setFormSubmitted] = useState(false);
@@ -38,10 +37,11 @@ function UserAndLayoutPage() {
     }
   }, [formSubmitted]);
 
-  const handleIntroContinue = () => setShowIntro(false);
+  // 🔹 Form field changes
   const handleChange = (e) =>
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
+  // 🔹 Form submission
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) {
@@ -66,13 +66,14 @@ function UserAndLayoutPage() {
     );
   };
 
-  // 🔹 Layout selection handler
-  const handleLayoutSelect = (layout) => {
-    console.log("🎯 Selected layout:", layout.id);
-    setLayout(layout.id);
+  // 🔹 Layout selection handler (always picks correct layout)
+  const handleLayoutSelect = () => {
+    const selectedLayout = layouts[activeIndex];
+    console.log("🎯 Selected layout:", selectedLayout.id);
+    setLayout(selectedLayout.id);
     navigate("/camera", {
       state: {
-        layoutId: layout.id,
+        layoutId: selectedLayout.id,
         name: formData.name,
         email: formData.email,
       },
@@ -81,33 +82,8 @@ function UserAndLayoutPage() {
 
   return (
     <div className="container py-5">
-      {/* ======= Welcome Modal ======= */}
-      {showIntro && (
-        <div className="consent-overlay">
-          <div className="consent-box">
-            <h4>Welcome to the Myntra Experience Express!</h4>
-            <p className="consent-text">
-              Capture your moment with Myntra’s AI Photobooth! You’ll receive a
-              digital copy of your photo. These may be used for internal
-              communications or Employer Branding.
-            </p>
-            <button
-              className="btn mt-3"
-              style={{
-                background:
-                  "linear-gradient(135deg, #0047FF 0%, #7A00FF 50%, #FF0099 100%)",
-                border: "none",
-              }}
-              onClick={handleIntroContinue}
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ======= Step 1: User Details ======= */}
-      {!formSubmitted && !showIntro && (
+      {!formSubmitted && (
         <div className="text-center user-details-section">
           <img
             src={myntraLogo2}
@@ -163,7 +139,7 @@ function UserAndLayoutPage() {
         </div>
       )}
 
-      {/* ======= Step 2: Layout Selection (Arrow Only) ======= */}
+      {/* ======= Step 2: Layout Selection ======= */}
       {formSubmitted && (
         <div className="layout-selection-container text-center mt-5">
           <h3 className="mb-4">Select Your Layout</h3>
@@ -178,7 +154,6 @@ function UserAndLayoutPage() {
             <div className="layout-wrapper">
               {layouts.map((layout, i) => {
                 const isActive = i === activeIndex;
-
                 return (
                   <img
                     key={layout.id}
@@ -192,7 +167,7 @@ function UserAndLayoutPage() {
                       transition: "all 0.4s ease-in-out",
                       cursor: "pointer",
                     }}
-                    onClick={() => handleLayoutSelect(layout)}
+                    onClick={handleLayoutSelect}
                   />
                 );
               })}

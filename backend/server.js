@@ -196,7 +196,7 @@ app.post("/submit-image-consent", async (req, res) => {
     // Place bottom-center
     const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
     // Slightly upper-centered framing
-const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 3.2);
+const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.9);
 
 
     const scaledUser = await sharp(bgRemovedBuffer)
