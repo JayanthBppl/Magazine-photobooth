@@ -183,42 +183,42 @@ app.post("/submit-image-consent", async (req, res) => {
       sharp(layerPath).toBuffer(),
     ]);
 
-    // Scale user image proportionally
-    // --- Safe adaptive scaling ---
+ // --- Adaptive scaling (safe for all devices) ---
 const userAspect = bgMeta.width / bgMeta.height;
 
-// Start with the layout as a base canvas
+// Base scaling relative to layout
 let targetWidth = LAYOUT_WIDTH;
 let targetHeight = targetWidth / userAspect;
 
-// If image taller than layout → scale to height instead
+// If the resized height exceeds the layout height, scale to height instead
 if (targetHeight > LAYOUT_HEIGHT) {
   targetHeight = LAYOUT_HEIGHT;
   targetWidth = targetHeight * userAspect;
 }
 
-// Safety margin (fit nicely inside the layout)
+// Apply a small inward scale for safety
 targetWidth *= 0.92;
 targetHeight *= 0.92;
 
-// ✅ Center horizontally and slightly lower vertically
+// ✅ Center horizontally, align to bottom
 const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.7);
+const top = Math.round(LAYOUT_HEIGHT - targetHeight);
 
-// Resize user image safely
+// Resize safely before compositing
 const scaledUser = await sharp(bgRemovedBuffer)
   .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
   .toBuffer();
 
 console.log(`
-📏 SAFE COMPOSITION DIAGNOSTICS
+📏 FINAL SAFE BOTTOM ANCHOR
 ----------------------------------
-Device image: ${bgMeta.width}x${bgMeta.height} (aspect: ${userAspect.toFixed(2)})
+Device: ${bgMeta.width}x${bgMeta.height} (aspect: ${userAspect.toFixed(2)})
 Target: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
 Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
-Position: left=${left}, top=${top}
+Placement → left=${left}, top=${top}
 ----------------------------------
 `);
+
 
 
 
