@@ -184,31 +184,43 @@ app.post("/submit-image-consent", async (req, res) => {
     ]);
 
     // Scale user image proportionally
-    const userAspect = bgMeta.width / bgMeta.height;
-    let targetHeight = LAYOUT_HEIGHT * 0.95; // fills 95% of layout
-    let targetWidth = targetHeight * userAspect;
+    // --- Safe adaptive scaling ---
+const userAspect = bgMeta.width / bgMeta.height;
 
-    if (targetWidth > LAYOUT_WIDTH * 0.95) {
-  targetWidth = LAYOUT_WIDTH * 0.95;
-  targetHeight = targetWidth / userAspect;
+// Start with the layout as a base canvas
+let targetWidth = LAYOUT_WIDTH;
+let targetHeight = targetWidth / userAspect;
+
+// If image taller than layout → scale to height instead
+if (targetHeight > LAYOUT_HEIGHT) {
+  targetHeight = LAYOUT_HEIGHT;
+  targetWidth = targetHeight * userAspect;
 }
 
-    // Place bottom-center
-    const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-    // Slightly upper-centered framing
-const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.9);
+// Safety margin (fit nicely inside the layout)
+targetWidth *= 0.92;
+targetHeight *= 0.92;
+
+// ✅ Center horizontally and slightly lower vertically
+const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
+const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.5);
+
+// Resize user image safely
+const scaledUser = await sharp(bgRemovedBuffer)
+  .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
+  .toBuffer();
+
+console.log(`
+📏 SAFE COMPOSITION DIAGNOSTICS
+----------------------------------
+Device image: ${bgMeta.width}x${bgMeta.height} (aspect: ${userAspect.toFixed(2)})
+Target: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
+Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
+Position: left=${left}, top=${top}
+----------------------------------
+`);
 
 
-    const scaledUser = await sharp(bgRemovedBuffer)
-      .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
-      .toBuffer();
-
-    console.log(`
-    📐 Placement Diagnostics:
-       Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
-       User: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
-       Position: left=${left}, top=${top}
-    `);
 
     const composedImageBuffer = await sharp(layoutBuffer)
       .composite([
