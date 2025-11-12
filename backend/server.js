@@ -203,7 +203,7 @@ targetHeight *= 0.92;
 
 // ✅ Center horizontally and slightly lower vertically
 const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 3.5);
+const top = Math.round((LAYOUT_HEIGHT - targetHeight) / 2.7);
 
 // Resize user image safely
 const scaledUser = await sharp(bgRemovedBuffer)
