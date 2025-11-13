@@ -174,78 +174,100 @@ app.post("/submit-image-consent", async (req, res) => {
 
     console.log(`🧩 Processing layout: ${layoutId}`);
 
-    let base64Data = imageData.startsWith("data:image")
+    /* -----------------------------------
+       BASE64 → BUFFER
+    ----------------------------------- */
+    const base64Data = imageData.startsWith("data:image")
       ? imageData.split(",")[1]
       : imageData;
+
     const inputBuffer = Buffer.from(base64Data, "base64");
 
-    // Background removal
+    /* -----------------------------------
+       REMOVE BACKGROUND
+    ----------------------------------- */
     const formData = new FormData();
     formData.append("image_file", inputBuffer, "camera.png");
     formData.append("size", "auto");
 
-    const bgResponse = await axios.post("https://api.remove.bg/v1.0/removebg", formData, {
-      headers: { ...formData.getHeaders(), "X-Api-Key": process.env.REMOVEBG_KEY },
-      responseType: "arraybuffer",
-      timeout: 60000,
-    });
+    const bgResponse = await axios.post(
+      "https://api.remove.bg/v1.0/removebg",
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          "X-Api-Key": process.env.REMOVEBG_KEY,
+        },
+        responseType: "arraybuffer",
+        timeout: 60000,
+      }
+    );
 
     const bgRemovedBuffer = Buffer.from(bgResponse.data, "binary");
     const bgMeta = await sharp(bgRemovedBuffer).metadata();
 
-    // Layout setup
-    const baseDir = path.join(__dirname, "assets");
-    const layoutFolder = path.join(baseDir, layoutId);
-    const layoutPath = path.join(layoutFolder, "layout-img.png");
-    const layerPath = path.join(layoutFolder, "layer-img.png");
+    /* -----------------------------------
+       LAYOUT SETUP
+    ----------------------------------- */
+    const baseDir = path.join(__dirname, "assets", layoutId);
+    const layoutPath = path.join(baseDir, "layout-img.png");
+    const layerPath = path.join(baseDir, "layer-img.png");
 
-    const LAYOUT_WIDTH = 1080;
-    const LAYOUT_HEIGHT = 1920;
+    // ✔ New layout dimensions
+    const LAYOUT_WIDTH = 288;
+    const LAYOUT_HEIGHT = 432;
 
     const [layoutBuffer, layerBuffer] = await Promise.all([
       sharp(layoutPath).toBuffer(),
       sharp(layerPath).toBuffer(),
     ]);
 
- // --- Adaptive scaling (safe for all devices) ---
-const userAspect = bgMeta.width / bgMeta.height;
+    /* -----------------------------------
+       SCALING + POSITIONING LOGIC
+    ----------------------------------- */
+    const userAspect = bgMeta.width / bgMeta.height;
 
-// Base scaling relative to layout
-let targetWidth = LAYOUT_WIDTH;
-let targetHeight = targetWidth / userAspect;
+    // Base — scale to full width first
+    let targetWidth = LAYOUT_WIDTH;
+    let targetHeight = targetWidth / userAspect;
 
-// If the resized height exceeds the layout height, scale to height instead
-if (targetHeight > LAYOUT_HEIGHT) {
-  targetHeight = LAYOUT_HEIGHT;
-  targetWidth = targetHeight * userAspect;
-}
+    // If height exceeds layout height → scale by height instead
+    if (targetHeight > LAYOUT_HEIGHT) {
+      targetHeight = LAYOUT_HEIGHT;
+      targetWidth = targetHeight * userAspect;
+    }
 
-// Apply a small inward scale for safety
-targetWidth *= 0.92;
-targetHeight *= 0.92;
+    // Safety inward scale (recommended 8–10%)
+    targetWidth *= 0.92;
+    targetHeight *= 0.92;
 
-// ✅ Center horizontally, align to bottom
-const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
-const top = Math.round(LAYOUT_HEIGHT - targetHeight);
+    // Bottom anchoring offset for 288×432
+    const BOTTOM_OFFSET = 14;
 
-// Resize safely before compositing
-const scaledUser = await sharp(bgRemovedBuffer)
-  .resize(Math.round(targetWidth), Math.round(targetHeight), { fit: "contain" })
-  .toBuffer();
+    // Center horizontally
+    const left = Math.round((LAYOUT_WIDTH - targetWidth) / 2);
 
-console.log(`
-📏 FINAL SAFE BOTTOM ANCHOR
-----------------------------------
-Device: ${bgMeta.width}x${bgMeta.height} (aspect: ${userAspect.toFixed(2)})
-Target: ${Math.round(targetWidth)}x${Math.round(targetHeight)}
-Layout: ${LAYOUT_WIDTH}x${LAYOUT_HEIGHT}
-Placement → left=${left}, top=${top}
-----------------------------------
-`);
+    // Bottom-align vertically
+    const top = Math.round(LAYOUT_HEIGHT - targetHeight - BOTTOM_OFFSET);
 
+    const scaledUser = await sharp(bgRemovedBuffer)
+      .resize(Math.round(targetWidth), Math.round(targetHeight), {
+        fit: "contain",
+      })
+      .toBuffer();
 
+    console.log(`
+📏 FINAL SCALED USER:
+---------------------------------------
+User → ${Math.round(targetWidth)} x ${Math.round(targetHeight)}
+Position → left=${left}, top=${top}
+Layout → 288x432
+---------------------------------------
+    `);
 
-
+    /* -----------------------------------
+       COMPOSITE FINAL IMAGE
+    ----------------------------------- */
     const composedImageBuffer = await sharp(layoutBuffer)
       .composite([
         { input: scaledUser, left, top, blend: "over" },
@@ -254,9 +276,14 @@ Placement → left=${left}, top=${top}
       .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
       .toBuffer();
 
-    const finalBase64 = `data:image/jpeg;base64,${composedImageBuffer.toString("base64")}`;
+    // Convert to Base64
+    const finalBase64 = `data:image/jpeg;base64,${composedImageBuffer.toString(
+      "base64"
+    )}`;
 
-    // Upload to Cloudinary
+    /* -----------------------------------
+       CLOUDINARY UPLOAD
+    ----------------------------------- */
     const uploadResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -268,10 +295,14 @@ Placement → left=${left}, top=${top}
         },
         (error, result) => (error ? reject(error) : resolve(result))
       );
-      require("streamifier").createReadStream(composedImageBuffer).pipe(uploadStream);
+      require("streamifier")
+        .createReadStream(composedImageBuffer)
+        .pipe(uploadStream);
     });
 
-    // Save session
+    /* -----------------------------------
+       SAVE SESSION
+    ----------------------------------- */
     const newSession = new Session({
       name,
       email,
@@ -283,7 +314,7 @@ Placement → left=${left}, top=${top}
 
     await newSession.save();
 
-    res.json({
+    return res.json({
       success: true,
       message: "Session stored successfully",
       finalImage: finalBase64,
@@ -298,6 +329,7 @@ Placement → left=${left}, top=${top}
     });
   }
 });
+
 
 
 

@@ -142,7 +142,7 @@ function UserAndLayoutPage() {
       {/* ======= Step 2: Layout Selection ======= */}
       {formSubmitted && (
         <div className="layout-selection-container text-center mt-5">
-          <h3 className="mb-4">Select Your Layout</h3>
+          {/* <h3 className="mb-4">Select Your Layout</h3> */}
 
           <div className="layout-display-container">
             {/* Left Arrow */}

@@ -23,17 +23,70 @@ const CameraPage = () => {
   const [showConsent, setShowConsent] = useState(false);
 
   const BASE_URL = "https://magazine-photobooth-backend.onrender.com";
+  // const BASE_URL = "http://localhost:5000";
 
   const FRAME_WIDTH = 1080;
   const FRAME_HEIGHT = 1920;
 
-  /** 🎥 Detect cameras */
+  /* ----------------------------------------------------------
+      RESIZE CAPTURE TO 288x432 (IMPORTANT!!)
+  ---------------------------------------------------------- */
+ const resizeToLayoutSize = (dataUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const out = document.createElement("canvas");
+      out.width = 288;
+      out.height = 432;
+
+      const ctx = out.getContext("2d");
+
+      ctx.fillStyle = "transparent";
+      ctx.fillRect(0, 0, out.width, out.height);
+
+      const imgAspect = img.width / img.height;
+      const layoutAspect = 288 / 432;
+
+      let drawWidth, drawHeight, x, y;
+
+      if (imgAspect > layoutAspect) {
+        drawHeight = 432;
+        drawWidth = drawHeight * imgAspect;
+        x = (288 - drawWidth) / 2;
+        y = 0;
+      } else {
+        drawWidth = 288;
+        drawHeight = drawWidth / imgAspect;
+        x = 0;
+        y = (432 - drawHeight) / 2;
+      }
+
+      /* ----------------------------------------
+         🔥 SHIFT USER IMAGE DOWN
+         Increase value to move further down
+      -----------------------------------------*/
+      const DOWN_OFFSET = 40; // try 30–60 until perfect
+      y += DOWN_OFFSET;
+
+      ctx.drawImage(img, x, y, drawWidth, drawHeight);
+
+      resolve(out.toDataURL("image/png"));
+    };
+
+    img.src = dataUrl;
+  });
+};
+
+  /* ----------------------------------------------------------
+      Detect Cameras
+  ---------------------------------------------------------- */
   useEffect(() => {
     const detectCameras = async () => {
       try {
         const devicesList = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devicesList.filter((d) => d.kind === "videoinput");
         setDevices(videoInputs);
+
         const frontCam = videoInputs.find((d) =>
           d.label.toLowerCase().includes("front")
         );
@@ -45,7 +98,9 @@ const CameraPage = () => {
     detectCameras();
   }, []);
 
-  /** 🎞 Start camera */
+  /* ----------------------------------------------------------
+      Start Camera
+  ---------------------------------------------------------- */
   const startCamera = async () => {
     try {
       const constraints = {
@@ -56,40 +111,39 @@ const CameraPage = () => {
         },
         audio: false,
       };
-      if (selectedDeviceId) constraints.video.deviceId = { exact: selectedDeviceId };
+      if (selectedDeviceId)
+        constraints.video.deviceId = { exact: selectedDeviceId };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraReady(true);
-        setHasStartedCamera(true);
-      }
+      videoRef.current.srcObject = stream;
+      setIsCameraReady(true);
+      setHasStartedCamera(true);
     } catch (err) {
       console.error("Camera access error:", err);
       alert("Please allow camera access to continue.");
     }
   };
 
-  /** Auto-start camera */
   useEffect(() => {
     const autoStart = async () => {
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
         startCamera();
-      } catch {
-        // wait for user interaction
-      }
+      } catch {}
     };
+
     autoStart();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
+      if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
       }
     };
-  }, [selectedDeviceId, layoutId]);
+  }, [selectedDeviceId]);
 
-  /** 📸 Capture Image (No Zoom) */
+  /* ----------------------------------------------------------
+      Capture 1080x1920 → Auto-resize → 288x432
+  ---------------------------------------------------------- */
   const captureImageLocal = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -100,8 +154,8 @@ const CameraPage = () => {
 
     canvas.width = FRAME_WIDTH;
     canvas.height = FRAME_HEIGHT;
-
     const ctx = canvas.getContext("2d");
+
     ctx.save();
     ctx.scale(-1, 1);
 
@@ -112,7 +166,7 @@ const CameraPage = () => {
 
     if (videoAspect > canvasAspect) {
       drawHeight = FRAME_HEIGHT;
-      drawWidth = FRAME_HEIGHT * videoAspect;
+      drawWidth = drawHeight * videoAspect;
       offsetX = (drawWidth - FRAME_WIDTH) / 2;
       offsetY = 0;
     } else {
@@ -125,14 +179,21 @@ const CameraPage = () => {
     ctx.drawImage(video, -FRAME_WIDTH - offsetX, -offsetY, drawWidth, drawHeight);
     ctx.restore();
 
-    const data = canvas.toDataURL("image/png");
-    setCapturedDataUrl(data);
-    setShowConsent(true);
+    const rawData = canvas.toDataURL("image/png");
+
+    /* 🔥 Resize BEFORE sending to backend */
+    resizeToLayoutSize(rawData).then((resized) => {
+      setCapturedDataUrl(resized);
+      setShowConsent(true);
+    });
   };
 
-  /** Countdown before capture */
+  /* ----------------------------------------------------------
+      Countdown
+  ---------------------------------------------------------- */
   const startCountdown = () => {
     if (!isCameraReady || processing) return;
+
     setCountdown(3);
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -146,7 +207,9 @@ const CameraPage = () => {
     }, 1000);
   };
 
-  /** ✅ Submit Image with Consent */
+  /* ----------------------------------------------------------
+      Submit to Backend
+  ---------------------------------------------------------- */
   const submitImageWithConsent = async (consentValue) => {
     if (!capturedDataUrl) return;
     setProcessing(true);
@@ -167,7 +230,7 @@ const CameraPage = () => {
       });
 
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || "Upload failed");
+      if (!data.success) throw new Error(data.message);
 
       setProcessedImage(data.finalImage);
 
@@ -194,7 +257,6 @@ const CameraPage = () => {
   return (
     <div key={layoutId} className="camera-container">
 
-      {/* 🔹 Processing Overlay */}
       {processing && (
         <div className="processing-overlay">
           <img src={LoadingGif} alt="Processing..." className="loading-icon" />
@@ -202,11 +264,9 @@ const CameraPage = () => {
         </div>
       )}
 
-      {/* 🔹 Main Camera Section */}
       <div className="camera-center-box" style={{ opacity: processing ? 0.3 : 1 }}>
         <h3 className="camera-title">Align Yourself and Get Ready!</h3>
 
-        {/* Camera Switch */}
         {devices.length > 1 && (
           <div className="camera-select-box">
             <label className="camera-select-label">Switch Camera:</label>
@@ -224,14 +284,12 @@ const CameraPage = () => {
           </div>
         )}
 
-        {/* Camera Start Button */}
         {!hasStartedCamera && (
           <button className="start-camera-btn" onClick={startCamera}>
             Start Camera
           </button>
         )}
 
-        {/* Camera Frame */}
         <div className="camera-frame">
           <video
             ref={videoRef}
@@ -242,21 +300,11 @@ const CameraPage = () => {
             style={{ transform: "scaleX(-1)" }}
           />
 
-          {/* 🔹 Overlay Layer */}
-          {/* <img
-            src={`/layouts/${layoutId}/layer-img.png?cacheBust=${Date.now()}`}
-            alt="overlay"
-            className="overlay-frame"
-          /> */}
-
-          {/* 🔹 Countdown Timer */}
           {countdown > 0 && <div className="countdown">{countdown}</div>}
         </div>
 
-        {/* Hidden Canvas */}
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
-        {/* Capture Button */}
         <button
           className="capture-btn"
           onClick={startCountdown}
@@ -266,15 +314,14 @@ const CameraPage = () => {
         </button>
       </div>
 
-      {/* 🔹 Consent Modal */}
       {showConsent && !processing && (
         <div className="consent-overlay">
           <div className="consent-box">
             <h4>Consent & Agreement</h4>
             <p>
-              By taking a photo, you agree to receive a digital copy of your image. <br />
-              You also consent that the image may be used by Myntra for internal
-              communications and Employer Branding purposes.
+              By taking a photo, you agree to receive a digital copy. <br />
+              You also consent that the image may be used for internal communications &
+              employer branding.
             </p>
             <div className="consent-buttons">
               <button
@@ -297,15 +344,6 @@ const CameraPage = () => {
               >
                 Do Not Agree
               </button>
-              {/* <button
-                className="cancel-btn"
-                onClick={() => {
-                  setShowConsent(false);
-                  setCapturedDataUrl(null);
-                }}
-              >
-                Cancel
-              </button> */}
             </div>
           </div>
         </div>
